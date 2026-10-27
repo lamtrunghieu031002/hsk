@@ -5,6 +5,7 @@ from app.models.exam import Exam, ExamQuestion
 from app.models.srs import SRSCard
 from app.models.user import User
 from app.models.study_session import StudySession
+from app.models.youtube_video import YoutubeVideo
 
 __all__ = [
     "Base",
@@ -16,4 +17,5 @@ __all__ = [
     "SRSCard",
     "User",
     "StudySession",
+    "YoutubeVideo",
 ]

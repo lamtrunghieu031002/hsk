@@ -8,6 +8,7 @@ import {
   ExamResult,
   AuthUser,
   AdminUsersResponse,
+  VideoItem,
 } from '../types';
 
 const TOKEN_KEY = 'hsk_access_token';
@@ -164,5 +165,43 @@ export const adminApi = {
   },
   deleteUser: async (userId: string) => {
     await api.delete(`/admin/users/${userId}`);
+  },
+};
+
+export const videoApi = {
+  list: async (hskLevel?: number): Promise<VideoItem[]> => {
+    const params: Record<string, any> = {};
+    if (hskLevel) params.hsk_level = hskLevel;
+    const res = await api.get<VideoItem[]>('/videos/', { params });
+    return res.data;
+  },
+  adminList: async (): Promise<VideoItem[]> => {
+    const res = await api.get<VideoItem[]>('/admin/videos/');
+    return res.data;
+  },
+  create: async (data: {
+    video_id: string;
+    title: string;
+    channel: string;
+    hsk_level: number;
+    description?: string;
+    sort_order?: number;
+  }): Promise<VideoItem> => {
+    const res = await api.post<VideoItem>('/admin/videos/', data);
+    return res.data;
+  },
+  update: async (id: string, data: Partial<{
+    title: string;
+    channel: string;
+    hsk_level: number;
+    description: string;
+    is_active: boolean;
+    sort_order: number;
+  }>): Promise<VideoItem> => {
+    const res = await api.patch<VideoItem>(`/admin/videos/${id}`, data);
+    return res.data;
+  },
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/admin/videos/${id}`);
   },
 };

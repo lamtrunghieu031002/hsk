@@ -1,159 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Plus, Trash2, Youtube, X, Headphones, ExternalLink, PlayCircle, PenLine, RotateCcw, Check, BookOpen, ChevronDown, ChevronUp, Award, AlertCircle, ListOrdered } from 'lucide-react';
+import { Youtube, Headphones, ExternalLink, PlayCircle, PenLine, RotateCcw, Check, BookOpen, ChevronDown, ChevronUp, Award, AlertCircle, ListOrdered } from 'lucide-react';
 import { DictationMode } from './DictationMode';
+import { videoApi } from '../services/api';
+import { VideoItem } from '../types';
 
-interface VideoItem {
-  id: string;
-  title: string;
-  channel: string;
-  hsk_level: number;
-  description?: string;
-  custom?: boolean;
-}
-
-// Tất cả video từ kênh Chinese Daily Podcast (@ChineseDailyPodcast)
-const CURATED: VideoItem[] = [
-  // ── HSK 1 ──────────────────────────────────────────────────────────────
-  {
-    id: 'MYQrQvbR8Vk',
-    title: 'HSK 1–2 | 我的一天 My Daily Routine | Learn Everyday Chinese',
-    channel: 'Chinese Daily Podcast',
-    hsk_level: 1,
-    description: 'Hội thoại sinh hoạt hàng ngày, từ vựng cơ bản, tốc độ chậm',
-  },
-  {
-    id: '47fGvpEV_Go',
-    title: 'HSK 1–2 | A Natural Chinese Conversation About Food | 中国美食对话',
-    channel: 'Chinese Daily Podcast',
-    hsk_level: 1,
-    description: 'Hội thoại tự nhiên về ẩm thực Trung Quốc, từ vựng HSK 1-2',
-  },
-  // ── HSK 2 ──────────────────────────────────────────────────────────────
-  {
-    id: 'eD3sKIMFuK8',
-    title: 'HSK 2+ | Modern Survival Skills: Don\'t Buy, Don\'t Do | 现代生存技能',
-    channel: 'Chinese Daily Podcast',
-    hsk_level: 2,
-    description: 'Kỹ năng sống hiện đại, từ vựng HSK 2+ thực dụng',
-  },
-  {
-    id: 'GFPOvOvFgQI',
-    title: 'HSK 1–3 | 像泡茶一样学中文 | Learn Chinese Like Making Tea',
-    channel: 'Chinese Daily Podcast',
-    hsk_level: 2,
-    description: 'Học tiếng Trung qua câu chuyện pha trà — nhẹ nhàng, dễ theo',
-  },
-  {
-    id: 'ARQHZCOH10A',
-    title: 'Daily Chinese Podcast for Beginner and Intermediate Learners',
-    channel: 'Chinese Daily Podcast',
-    hsk_level: 2,
-    description: 'Podcast hàng ngày dành cho người học sơ & trung cấp',
-  },
-  // ── HSK 3 ──────────────────────────────────────────────────────────────
-  {
-    id: 'MJTAYI52T3w',
-    title: 'HSK 3 | What Is the Lantern Festival? | 什么是元宵节？',
-    channel: 'Chinese Daily Podcast',
-    hsk_level: 3,
-    description: 'Tìm hiểu lễ Nguyên Tiêu — văn hóa & từ vựng HSK 3',
-  },
-  {
-    id: 'DvSaq8UPv_w',
-    title: 'HSK 3–4 | The Legend of the 12 Zodiac Animals | 十二生肖的传说',
-    channel: 'Chinese Daily Podcast',
-    hsk_level: 3,
-    description: 'Truyền thuyết 12 con giáp — kể chuyện sinh động cấp 3-4',
-  },
-  {
-    id: 'kVsxl4gbPrw',
-    title: 'HSK 3–4 | Why Lunar New Year Matters in Chinese Culture | 春节为什么这么重要？',
-    channel: 'Chinese Daily Podcast',
-    hsk_level: 3,
-    description: 'Tết Âm lịch trong văn hóa Trung Hoa — HSK 3-4',
-  },
-  {
-    id: '0WsXRQFkY4s',
-    title: 'HSK 3+ | Learn Chinese with Stories about Happiness | 听故事学中文',
-    channel: 'Chinese Daily Podcast',
-    hsk_level: 3,
-    description: 'Học tiếng Trung qua câu chuyện về hạnh phúc — HSK 3+',
-  },
-  // ── HSK 4 ──────────────────────────────────────────────────────────────
-  {
-    id: 'cF6ur3rkhM8',
-    title: 'HSK 1–4 | Chinese Listening Practice | Why You Must Listen First',
-    channel: 'Chinese Daily Podcast',
-    hsk_level: 4,
-    description: 'Vì sao phải luyện nghe trước? Podcast đa cấp HSK 1-4',
-  },
-  {
-    id: '3mHlegzXELA',
-    title: 'HSK 3–5 | Ancient Wisdom | 3 Chinese Fables | 成语故事',
-    channel: 'Chinese Daily Podcast',
-    hsk_level: 4,
-    description: '3 câu chuyện ngụ ngôn thành ngữ Trung Hoa — tư duy phản biện',
-  },
-  {
-    id: 'AI6Y37T772k',
-    title: '学会倾听与消除误会 | How to Listen & Avoid Misunderstandings | Chinese Bedtime Story',
-    channel: 'Chinese Daily Podcast',
-    hsk_level: 4,
-    description: 'Câu chuyện ngủ bằng tiếng Trung — kỹ năng lắng nghe & tránh hiểu lầm',
-  },
-  // ── HSK 5 ──────────────────────────────────────────────────────────────
-  {
-    id: 'V1xjCi-1EKU',
-    title: 'HSK 4–5 | Conversations on Habits | Chinese Listening Practice',
-    channel: 'Chinese Daily Podcast',
-    hsk_level: 5,
-    description: 'Hội thoại về thói quen hàng ngày — tốc độ tự nhiên HSK 4-5',
-  },
-  {
-    id: 'KtbmTlU9d3M',
-    title: 'HSK 4–5 | 酒逢知己千杯少 | Drinking with a True Friend',
-    channel: 'Chinese Daily Podcast',
-    hsk_level: 5,
-    description: 'Thành ngữ "rượu gặp tri kỷ ngàn chén vẫn ít" — HSK 4-5',
-  },
-  // ── HSK 6 ──────────────────────────────────────────────────────────────
-  {
-    id: 'MZbnUUWtZv4',
-    title: '你真的变了吗？成年人的成长瞬间 | Subtle Signs of Growing Up',
-    channel: 'Chinese Daily Podcast',
-    hsk_level: 6,
-    description: 'Những khoảnh khắc trưởng thành tinh tế — tốc độ bản ngữ',
-  },
-  {
-    id: '468fViDwrlE',
-    title: '孝顺还是盲从？ | Filial Piety vs Obedience in China',
-    channel: 'Chinese Daily Podcast',
-    hsk_level: 6,
-    description: 'Hiếu thuận hay tuân lệnh mù quáng? — chủ đề xã hội học thuật',
-  },
-];
-
-import { ScoreResult, computeDiff } from '../utils/dictation';
-
-const STORAGE_KEY = 'hsk_custom_videos';
 const DICTATION_KEY = (videoId: string) => `hsk_dictation_${videoId}`;
 const ANSWER_KEY    = (videoId: string) => `hsk_answer_${videoId}`;
-
-function extractYoutubeId(input: string): string | null {
-  const s = input.trim();
-  // Already just an ID (11 chars, no slash)
-  if (/^[a-zA-Z0-9_-]{11}$/.test(s)) return s;
-  // youtu.be/ID
-  const short = s.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
-  if (short) return short[1];
-  // youtube.com/watch?v=ID
-  const watch = s.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
-  if (watch) return watch[1];
-  // youtube.com/embed/ID
-  const embed = s.match(/embed\/([a-zA-Z0-9_-]{11})/);
-  if (embed) return embed[1];
-  return null;
-}
 
 const LEVEL_COLORS: Record<number, string> = {
   0: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300',
@@ -169,21 +21,13 @@ interface Props {
   selectedLevel: number;
 }
 
+import { ScoreResult, computeDiff } from '../utils/dictation';
+
 export const YoutubeListening: React.FC<Props> = ({ selectedLevel }) => {
-  const [customVideos, setCustomVideos] = useState<VideoItem[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    } catch {
-      return [];
-    }
-  });
-  const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
+  const [videos, setVideos] = useState<VideoItem[]>([]);
+  const [videosLoading, setVideosLoading] = useState(true);
+  const [activeVideoId, setActiveVideoId] = useState<string | null>(null); // YouTube video_id
   const [levelFilter, setLevelFilter] = useState<number>(0);
-  const [showAdd, setShowAdd] = useState(false);
-  const [urlInput, setUrlInput] = useState('');
-  const [titleInput, setTitleInput] = useState('');
-  const [channelInput, setChannelInput] = useState('');
-  const [addError, setAddError] = useState('');
 
   // Dictation state
   const [dictationText, setDictationText] = useState('');
@@ -201,15 +45,18 @@ export const YoutubeListening: React.FC<Props> = ({ selectedLevel }) => {
   const [lessonMode, setLessonMode] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
+  // Fetch videos from API
+  useEffect(() => {
+    videoApi.list().then(data => {
+      setVideos(data);
+      setVideosLoading(false);
+    }).catch(() => setVideosLoading(false));
+  }, []);
+
   // Sync level filter with selectedLevel when tab loads
   useEffect(() => {
     setLevelFilter(selectedLevel === 0 ? 0 : selectedLevel);
   }, [selectedLevel]);
-
-  // Persist custom videos
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(customVideos));
-  }, [customVideos]);
 
   // Load saved dictation + answer when active video changes
   useEffect(() => {
@@ -272,46 +119,14 @@ export const YoutubeListening: React.FC<Props> = ({ selectedLevel }) => {
     [dictationText]
   );
 
-  const allVideos = useMemo(() => [...CURATED, ...customVideos], [customVideos]);
   const filtered = useMemo(
-    () => levelFilter === 0 ? allVideos : allVideos.filter(v => v.hsk_level === levelFilter),
-    [allVideos, levelFilter]
+    () => levelFilter === 0 ? videos : videos.filter(v => v.hsk_level === levelFilter),
+    [videos, levelFilter]
   );
   const activeVideo = useMemo(
-    () => activeVideoId ? allVideos.find(v => v.id === activeVideoId) ?? null : null,
-    [allVideos, activeVideoId]
+    () => activeVideoId ? videos.find(v => v.video_id === activeVideoId) ?? null : null,
+    [videos, activeVideoId]
   );
-
-  const handleAdd = () => {
-    setAddError('');
-    const videoId = extractYoutubeId(urlInput);
-    if (!videoId) {
-      setAddError('URL YouTube không hợp lệ. Hãy dán link từ youtube.com hoặc youtu.be');
-      return;
-    }
-    if (allVideos.some((v) => v.id === videoId)) {
-      setAddError('Video này đã có trong danh sách');
-      return;
-    }
-    const newVideo: VideoItem = {
-      id: videoId,
-      title: titleInput.trim() || `Video ${videoId}`,
-      channel: channelInput.trim() || 'Kênh tùy chỉnh',
-      hsk_level: levelFilter === 0 ? 1 : levelFilter,
-      custom: true,
-    };
-    setCustomVideos((prev) => [...prev, newVideo]);
-    setActiveVideoId(videoId);
-    setUrlInput('');
-    setTitleInput('');
-    setChannelInput('');
-    setShowAdd(false);
-  };
-
-  const handleDelete = (id: string) => {
-    setCustomVideos((prev) => prev.filter((v) => v.id !== id));
-    if (activeVideoId === id) setActiveVideoId(null);
-  };
 
   return (
     <div className="max-w-7xl mx-auto my-6 space-y-6">
@@ -326,13 +141,6 @@ export const YoutubeListening: React.FC<Props> = ({ selectedLevel }) => {
             Nhúng video YouTube luyện nghe trực tiếp — phân loại theo cấp độ HSK
           </p>
         </div>
-        <button
-          onClick={() => setShowAdd(true)}
-          className="flex items-center space-x-2 px-4 py-2 rounded-2xl bg-gradient-to-r from-red-600 to-rose-600 text-white font-bold text-sm shadow-md shadow-red-500/20 hover:scale-105 active:scale-95 transition-all"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Thêm Video</span>
-        </button>
       </div>
 
       {/* Channel banner */}
@@ -350,7 +158,7 @@ export const YoutubeListening: React.FC<Props> = ({ selectedLevel }) => {
             Chinese Daily Podcast
           </p>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            16 video tuyển chọn • Podcast tiếng Trung HSK 1–6 • Nhấn để xem toàn bộ kênh
+            {videos.length} video tuyển chọn • Podcast tiếng Trung HSK 1–6 • Nhấn để xem toàn bộ kênh
           </p>
         </div>
         <ExternalLink className="w-4 h-4 text-red-400 flex-shrink-0" />
@@ -359,7 +167,7 @@ export const YoutubeListening: React.FC<Props> = ({ selectedLevel }) => {
       {/* Level filter tabs */}
       <div className="flex items-center space-x-2 overflow-x-auto pb-1">
         {[0, 1, 2, 3, 4, 5, 6].map((lvl) => {
-          const count = lvl === 0 ? allVideos.length : allVideos.filter((v) => v.hsk_level === lvl).length;
+          const count = lvl === 0 ? videos.length : videos.filter((v) => v.hsk_level === lvl).length;
           return (
             <button
               key={lvl}
@@ -670,7 +478,7 @@ export const YoutubeListening: React.FC<Props> = ({ selectedLevel }) => {
               <div>
                 <p className="font-bold text-slate-700 dark:text-slate-300">Chọn một video để phát</p>
                 <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                  Nhấp vào video bên phải hoặc thêm link YouTube của bạn
+                  Nhấp vào video bên phải để bắt đầu luyện nghe
                 </p>
               </div>
             </div>
@@ -679,17 +487,19 @@ export const YoutubeListening: React.FC<Props> = ({ selectedLevel }) => {
 
         {/* Video List Column */}
         <div className="lg:col-span-2 space-y-2 max-h-[760px] overflow-y-auto pr-1">
-          {filtered.length === 0 ? (
+          {videosLoading ? (
+            <div className="text-center py-10 text-slate-400 text-sm">Đang tải danh sách video...</div>
+          ) : filtered.length === 0 ? (
             <div className="text-center py-10 text-slate-400 text-sm">
-              Chưa có video cho cấp độ này. Nhấn "+ Thêm Video" để thêm!
+              Chưa có video cho cấp độ này.
             </div>
           ) : (
             filtered.map((video) => {
-              const isActive = video.id === activeVideoId;
+              const isActive = video.video_id === activeVideoId;
               return (
                 <div
                   key={video.id}
-                  onClick={() => setActiveVideoId(video.id)}
+                  onClick={() => setActiveVideoId(video.video_id)}
                   className={`group relative p-4 rounded-2xl border cursor-pointer transition-all ${
                     isActive
                       ? 'border-red-400 dark:border-red-700 bg-red-50 dark:bg-red-950/30 shadow-md shadow-red-500/10'
@@ -700,7 +510,7 @@ export const YoutubeListening: React.FC<Props> = ({ selectedLevel }) => {
                     {/* Thumbnail */}
                     <div className="flex-shrink-0 w-20 h-14 rounded-xl overflow-hidden bg-slate-200 dark:bg-slate-800 relative">
                       <img
-                        src={`https://img.youtube.com/vi/${video.id}/mqdefault.jpg`}
+                        src={`https://img.youtube.com/vi/${video.video_id}/mqdefault.jpg`}
                         alt={video.title}
                         loading="lazy"
                         decoding="async"
@@ -732,20 +542,6 @@ export const YoutubeListening: React.FC<Props> = ({ selectedLevel }) => {
                       </span>
                     </div>
                   </div>
-
-                  {/* Delete button for custom videos */}
-                  {video.custom && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(video.id);
-                      }}
-                      className="absolute top-2 right-2 p-1 rounded-lg text-slate-300 dark:text-slate-700 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors opacity-0 group-hover:opacity-100"
-                      title="Xóa video này"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
                 </div>
               );
             })
@@ -762,91 +558,6 @@ export const YoutubeListening: React.FC<Props> = ({ selectedLevel }) => {
             iframeRef={iframeRef}
             onClose={() => setLessonMode(false)}
           />
-        </div>
-      )}
-
-      {/* Add Video Modal */}
-      {showAdd && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6">
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 rounded-xl bg-red-100 dark:bg-red-950/60 flex items-center justify-center">
-                  <Youtube className="w-4 h-4 text-red-600 dark:text-red-400" />
-                </div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">Thêm Video YouTube</h3>
-              </div>
-              <button
-                onClick={() => { setShowAdd(false); setAddError(''); setUrlInput(''); setTitleInput(''); setChannelInput(''); }}
-                className="p-1.5 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                  Link YouTube <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={urlInput}
-                  onChange={(e) => { setUrlInput(e.target.value); setAddError(''); }}
-                  placeholder="https://www.youtube.com/watch?v=... hoặc youtu.be/..."
-                  className="mt-1.5 w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-400"
-                  onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-                  autoFocus
-                />
-                {addError && (
-                  <p className="mt-1.5 text-xs text-rose-500">{addError}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                  Tiêu đề (tùy chọn)
-                </label>
-                <input
-                  type="text"
-                  value={titleInput}
-                  onChange={(e) => setTitleInput(e.target.value)}
-                  placeholder="Tên video hiển thị trong danh sách..."
-                  className="mt-1.5 w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-400"
-                  onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                  Tên kênh (tùy chọn)
-                </label>
-                <input
-                  type="text"
-                  value={channelInput}
-                  onChange={(e) => setChannelInput(e.target.value)}
-                  placeholder="Ví dụ: Comprehensible Chinese, CCTV..."
-                  className="mt-1.5 w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-400"
-                  onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-                />
-              </div>
-
-              <div className="pt-1 flex space-x-2">
-                <button
-                  onClick={() => { setShowAdd(false); setAddError(''); setUrlInput(''); setTitleInput(''); setChannelInput(''); }}
-                  className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                >
-                  Hủy
-                </button>
-                <button
-                  onClick={handleAdd}
-                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 text-white text-sm font-bold shadow-md shadow-red-500/20 hover:scale-105 active:scale-95 transition-all"
-                >
-                  Thêm vào danh sách
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
       )}
     </div>

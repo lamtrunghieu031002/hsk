@@ -112,3 +112,14 @@ export interface AdminUsersResponse {
   page_size: number;
   items: AdminUserRow[];
 }
+
+export interface VideoItem {
+  id: string;       // UUID (DB primary key)
+  video_id: string; // YouTube video ID (11 chars)
+  title: string;
+  channel: string;
+  hsk_level: number;
+  description?: string | null;
+  is_active: boolean;
+  sort_order: number;
+}
