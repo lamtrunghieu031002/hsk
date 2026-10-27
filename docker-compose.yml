@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: hsk_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: hsk_user
+      POSTGRES_PASSWORD: hsk_password_2026
+      POSTGRES_DB: hsk_database
+    ports:
+      - "5432:5432"
+    volumes:
+      - hsk_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hsk_user -d hsk_database"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: hsk_redis
+    restart: always
+    ports:
+      - "6380:6379"
+    volumes:
+      - hsk_redisdata:/data
+
+volumes:
+  hsk_pgdata:
+  hsk_redisdata:

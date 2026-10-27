@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "WebFetch(domain:www.dailydictation.com)",
+      "Bash(curl *)",
+      "Bash(npm install *)",
+      "WebFetch(domain:dailydictation.com)",
+      "WebSearch",
+      "WebFetch(domain:dictationdaily.github.io)",
+      "Bash(pip install *)",
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "Bash(pkill -f \"uvicorn app.main\")",
+      "Bash(uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload)",
+      "Bash(python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload)",
+      "Bash(echo \"PID: $!\")",
+      "Bash(python3 -c \"import uvicorn; print\\(uvicorn.__version__\\)\")",
+      "Bash(xargs kill)",
+      "Bash(./backend/run.sh)",
+      "Bash(xargs ls -lt)"
+    ]
+  }
+}
