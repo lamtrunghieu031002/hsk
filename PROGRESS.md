@@ -1,5 +1,5 @@
 # HSK Mastery 2026 — Nhật ký tiến độ
-> Cập nhật: 2026-10-26
+> Cập nhật: 2026-10-27
 
 ---
 
@@ -47,7 +47,7 @@ backend/.env          →  GOOGLE_CLIENT_ID=...
 
 ### 1. Từ vựng HSK
 - Tab "Từ Vựng HSK" hiển thị toàn bộ từ mỗi cấp (không phân trang)
-- **747 từ trong DB**: HSK1=225, HSK2=158, HSK3=111, HSK4=88, HSK5=81, HSK6=84
+- **1134 từ trong DB**: HSK1=225, HSK2=158, HSK3=111, HSK4=240, HSK5=200, HSK6=200
 - Mỗi từ: chữ giản thể, pinyin, Hán Việt, nghĩa VI/EN, từ loại, ví dụ câu
 - Nút phát âm TTS, nút chuyển sang tab Tập Viết
 - **File:** `frontend/src/App.tsx` (VocabCard component + grid)
@@ -78,12 +78,12 @@ backend/.env          →  GOOGLE_CLIENT_ID=...
 - **File:** `frontend/src/components/GrammarList.tsx`
 
 ### 6. Luyện nghe YouTube
-- 16 video ChineseDailyPodcast nhúng sẵn
+- Video lấy từ DB `youtube_videos`, admin thêm/sửa/xóa qua Admin panel
 - Transcript hiển thị từng dòng, bấm để phát đúng đoạn
 - Chế độ DictationMode: nghe → gõ lại → chấm điểm LCS diff
 - **Tự fetch transcript:** Bấm nút → server gọi YouTube API → điền sẵn vào ô
-- **File:** `frontend/src/components/YoutubeListening.tsx`, `DictationMode.tsx`
-- **API:** `GET /api/v1/transcript/{video_id}`
+- **Files:** `frontend/src/components/YoutubeListening.tsx`, `DictationMode.tsx`
+- **API:** `GET /api/v1/videos/`, `GET /api/v1/transcript/{video_id}`
 
 ### 7. Viết Theo Nghĩa (MeaningDrill)
 - Xáo trộn 20 từ ngẫu nhiên trong cấp HSK đang chọn
@@ -105,9 +105,12 @@ backend/.env          →  GOOGLE_CLIENT_ID=...
 ### 9. Phân quyền Admin / User
 - Role: `admin` hoặc `user`
 - Tab "Quản Trị" chỉ hiện với Admin
-- Admin panel: bảng user, đổi role (admin↔user), xóa tài khoản người khác
+- Admin panel có 2 tab:
+  - **Người Dùng:** bảng user, đổi role (admin↔user), xóa tài khoản
+  - **Video YouTube:** thêm/sửa/xóa video, toggle ẩn/hiện từng video
 - **File:** `frontend/src/components/AdminPanel.tsx`
-- **API:** `GET /api/v1/admin/users`, `PATCH /api/v1/admin/users/{id}/role`, `DELETE /api/v1/admin/users/{id}`
+- **API users:** `GET /api/v1/admin/users`, `PATCH /api/v1/admin/users/{id}/role`, `DELETE /api/v1/admin/users/{id}`
+- **API videos:** `GET /api/v1/admin/videos/`, `POST`, `PATCH /api/v1/admin/videos/{id}`, `DELETE`
 
 ### 10. Tiến trình học tập
 - Tab "Tiến Trình" chỉ hiện khi đã đăng nhập
@@ -129,17 +132,35 @@ backend/.env          →  GOOGLE_CLIENT_ID=...
 - `AbortController` trong VocabSearchModal (hủy request cũ khi gõ tiếp)
 - Backend `run.sh prod` chạy 4 Uvicorn workers (4/12 CPU)
 
+### 12. Quản lý video YouTube qua Admin panel
+- Bảng `youtube_videos` (UUID PK, video_id, title, channel, hsk_level, description, is_active, sort_order)
+- 16 video mặc định tự động seed vào DB khi bảng trống lúc startup
+- `YoutubeListening` fetch từ API thay vì hardcode — admin ẩn/hiện video ngay lập tức
+- **File:** `backend/app/models/youtube_video.py`, `backend/app/api/youtube.py`
+- **API public:** `GET /api/v1/videos/?hsk_level=3`
+- **API admin:** `POST /PUT /DELETE /api/v1/admin/videos/`
+
+### 13. Luyện Nói (Speech Practice)
+- Dùng **Web Speech API** (miễn phí, Chrome/Edge)
+- **2 chế độ:**
+  - *Đọc Theo:* thấy chữ Hán + pinyin → đọc to → chấm điểm từng ký tự
+  - *Dịch Nhanh:* thấy nghĩa tiếng Việt → nhớ và nói tiếng Trung (khó hơn)
+- Chấm điểm từng chữ: xanh = đúng, đỏ = sai; hiển thị transcript hệ thống nhận ra
+- Auto-phát TTS mẫu khi mở thẻ, nút nghe lại bất kỳ lúc nào
+- Toggle ẩn/hiện pinyin, nút xem gợi ý cho chế độ Dịch Nhanh
+- Pulsing mic animation + auto-stop 9 giây
+- Mini scoreboard màu (xanh/vàng/đỏ) hiển thị điểm từng từ đã làm
+- Màn hình tổng kết: điểm TB, số từ đúng hoàn toàn
+- **File:** `frontend/src/components/SpeechPractice.tsx`
+
 ---
 
 ## Cần làm tiếp
 
-### Ưu tiên cao
-- [ ] **Thêm dữ liệu từ vựng HSK 4–6** — hiện chỉ có 81–88 từ/cấp, chuẩn HSK mới cần 600–2500 từ/cấp. Cần import thêm data vào DB.
-- [ ] **Quản lý video YouTube qua Admin panel** — hiện 16 video cứng trong code (`YoutubeListening.tsx`). Cần chuyển sang bảng DB `youtube_videos` và cho admin thêm/xóa/sửa qua UI.
-
 ### Ưu tiên vừa
 - [ ] **Thêm từ vựng qua Admin panel** — CRUD vocab trong DB, không cần vào terminal
 - [ ] **Lưu kết quả Dictation** — DictationMode chưa lưu vào `study_sessions`
+- [ ] **Lưu kết quả Luyện Nói** — SpeechPractice chưa lưu vào `study_sessions`
 - [ ] **Tìm kiếm nâng cao** — lọc theo từ loại (danh từ, động từ...), theo Hán Việt
 - [ ] **Backup DB tự động** — cron job `pg_dump` hàng ngày
 
@@ -154,6 +175,7 @@ backend/.env          →  GOOGLE_CLIENT_ID=...
 - [ ] Export tiến trình ra PDF
 - [ ] Leaderboard (bảng xếp hạng streak giữa users)
 - [ ] Chế độ ôn theo Hán Việt thay vì nghĩa tiếng Việt
+- [ ] Luyện nói câu dài (shadowing theo transcript YouTube)
 
 ---
 
@@ -163,18 +185,18 @@ backend/.env          →  GOOGLE_CLIENT_ID=...
 hskde/
 ├── backend/
 │   ├── app/
-│   │   ├── api/          vocabulary, grammar, exam, srs, transcript, auth, admin, progress
+│   │   ├── api/          vocabulary, grammar, exam, srs, transcript, auth, admin, progress, youtube
 │   │   ├── core/         config, database, security, cache (Redis)
-│   │   └── models/       Vocabulary, GrammarPoint, Exam, SRSCard, User, StudySession
+│   │   └── models/       Vocabulary, GrammarPoint, Exam, SRSCard, User, StudySession, YoutubeVideo
 │   ├── .env              GOOGLE_CLIENT_ID, JWT_SECRET_KEY, FIRST_ADMIN_EMAIL
 │   └── run.sh            dev / prod mode
 └── frontend/
     ├── src/
     │   ├── components/   Navbar, FlashcardDeck, HanziCanvas, ExamView, GrammarList,
-    │   │                 YoutubeListening, DictationMode, MeaningDrill,
+    │   │                 YoutubeListening, DictationMode, MeaningDrill, SpeechPractice,
     │   │                 AdminPanel, ProgressDashboard, VocabSearchModal
     │   ├── contexts/     AuthContext.tsx  (JWT + Google login state)
-    │   └── services/     api.ts  (vocabApi, authApi, adminApi, progressApi, srsApi...)
+    │   └── services/     api.ts  (vocabApi, authApi, adminApi, progressApi, srsApi, videoApi...)
     ├── .env.local        VITE_GOOGLE_CLIENT_ID
     └── index.html        Google Identity Services script tag
 ```
