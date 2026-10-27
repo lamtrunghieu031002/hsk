@@ -113,7 +113,7 @@ export const authApi = {
 };
 
 export interface SessionPayload {
-  session_type: 'flashcard' | 'meaning_drill' | 'exam' | 'listening';
+  session_type: 'flashcard' | 'meaning_drill' | 'exam' | 'listening' | 'speaking';
   hsk_level: number;
   items_count: number;
   correct_count: number;

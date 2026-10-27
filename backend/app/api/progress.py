@@ -13,7 +13,7 @@ router = APIRouter(prefix="/progress", tags=["Progress"])
 
 
 class SessionBody(BaseModel):
-    session_type: Literal["flashcard", "meaning_drill", "exam", "listening"]
+    session_type: Literal["flashcard", "meaning_drill", "exam", "listening", "speaking"]
     hsk_level: int
     items_count: int
     correct_count: int

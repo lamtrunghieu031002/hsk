@@ -5,6 +5,8 @@ import {
 } from 'lucide-react';
 import { Vocabulary } from '../types';
 import { speech } from '../utils/speech';
+import { progressApi } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -55,6 +57,7 @@ interface Props {
 }
 
 export const SpeechPractice: React.FC<Props> = ({ cards, onClose }) => {
+  const { user } = useAuth();
   const [started, setStarted]     = useState(false);
   const [mode, setMode]           = useState<Mode>('read');
   const [showPinyin, setShowPinyin] = useState(true);
@@ -145,6 +148,18 @@ export const SpeechPractice: React.FC<Props> = ({ cards, onClose }) => {
   const handleNext = () => {
     if (idx >= queue.length - 1) {
       setPhase('done');
+      if (user && scores.length > 0) {
+        const total   = scores.length + 1; // +1 for current card
+        const perfect = scores.filter(s => s === 100).length + (tokens.length > 0 && calcScore(tokens) === 100 ? 1 : 0);
+        const avg     = scores.reduce((a, b) => a + b, 0) / scores.length;
+        progressApi.logSession({
+          session_type: 'speaking',
+          hsk_level: queue[0]?.hsk_level ?? 1,
+          items_count: total,
+          correct_count: perfect,
+          score: avg / 100,
+        }).catch(() => {});
+      }
     } else {
       setIdx(i => i + 1);
       setPhase('idle');
