@@ -17,6 +17,7 @@ const YoutubeListening = lazy(() => import('./components/YoutubeListening').then
 const MeaningDrill     = lazy(() => import('./components/MeaningDrill').then(m => ({ default: m.MeaningDrill })));
 const AdminPanel          = lazy(() => import('./components/AdminPanel').then(m => ({ default: m.AdminPanel })));
 const ProgressDashboard   = lazy(() => import('./components/ProgressDashboard').then(m => ({ default: m.ProgressDashboard })));
+const SpeechPractice      = lazy(() => import('./components/SpeechPractice').then(m => ({ default: m.SpeechPractice })));
 
 const TabFallback = () => (
   <div className="py-16 text-center text-sm text-slate-400 dark:text-slate-500">
@@ -310,10 +311,18 @@ export const App: React.FC = () => {
           {/* Tab 6: Luyện Nghe YouTube */}
           {currentTab === 'listening' && <YoutubeListening selectedLevel={selectedLevel} />}
 
-          {/* Tab 7: Tiến Trình */}
+          {/* Tab 7: Luyện Nói */}
+          {currentTab === 'speaking' && (
+            <SpeechPractice
+              cards={vocabList}
+              onClose={() => setCurrentTab('vocab')}
+            />
+          )}
+
+          {/* Tab 8: Tiến Trình */}
           {currentTab === 'progress' && <ProgressDashboard />}
 
-          {/* Tab 8: Admin Panel */}
+          {/* Tab 9: Admin Panel */}
           {currentTab === 'admin' && <AdminPanel />}
         </Suspense>
       </main>

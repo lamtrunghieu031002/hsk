@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { BookOpen, Sparkles, PenTool, Award, Search, BookMarked, Sun, Moon, Headphones, Shield, LogOut, User as UserIcon, ChevronDown, Trash2, AlertTriangle, TrendingUp } from 'lucide-react';
+import { BookOpen, Sparkles, PenTool, Award, Search, BookMarked, Sun, Moon, Headphones, Shield, LogOut, User as UserIcon, ChevronDown, Trash2, AlertTriangle, TrendingUp, Mic } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { authApi } from '../services/api';
 
@@ -36,6 +36,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'exams',      label: 'Đề Thi Mô Phỏng',   icon: Award },
     { id: 'grammar',    label: 'Ngữ Pháp',           icon: BookMarked },
     { id: 'listening',  label: 'Luyện Nghe',         icon: Headphones },
+    { id: 'speaking',   label: 'Luyện Nói',          icon: Mic },
     ...(user ? [{ id: 'progress', label: 'Tiến Trình', icon: TrendingUp }] : []),
     ...(isAdmin ? [{ id: 'admin', label: 'Quản Trị', icon: Shield }] : []),
   ];
