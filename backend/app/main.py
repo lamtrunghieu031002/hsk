@@ -73,6 +73,7 @@ app.add_middleware(
 app.include_router(vocabulary.router, prefix=settings.API_V1_STR)
 app.include_router(grammar.router, prefix=settings.API_V1_STR)
 app.include_router(exam.router, prefix=settings.API_V1_STR)
+app.include_router(exam.admin_router, prefix=settings.API_V1_STR)
 app.include_router(srs.router, prefix=settings.API_V1_STR)
 app.include_router(transcript.router, prefix=settings.API_V1_STR)
 app.include_router(auth.router, prefix=settings.API_V1_STR)

@@ -168,6 +168,41 @@ export const adminApi = {
   },
 };
 
+export interface ExamQuestionCreate {
+  section: 'listening' | 'reading';
+  question_number: number;
+  question_type: 'multiple_choice' | 'true_false';
+  audio_text?: string;
+  stimulus?: string;
+  question_text: string;
+  options?: string[];
+  correct_answer: string;
+  explanation_vi?: string;
+}
+
+export interface ExamCreatePayload {
+  hsk_level: number;
+  title: string;
+  description?: string;
+  duration_minutes: number;
+  total_score: number;
+  questions: ExamQuestionCreate[];
+}
+
+export const examAdminApi = {
+  list: async (): Promise<import('../types').ExamSummary[]> => {
+    const res = await api.get('/admin/exams/');
+    return res.data;
+  },
+  create: async (data: ExamCreatePayload): Promise<import('../types').ExamSummary> => {
+    const res = await api.post('/admin/exams/', data);
+    return res.data;
+  },
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/admin/exams/${id}`);
+  },
+};
+
 export const videoApi = {
   list: async (hskLevel?: number): Promise<VideoItem[]> => {
     const params: Record<string, any> = {};
