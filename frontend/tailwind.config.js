@@ -24,7 +24,16 @@ export default {
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         chinese: ['"PingFang SC"', '"Hiragino Sans GB"', '"Microsoft YaHei"', 'simsun', 'sans-serif']
-      }
+      },
+      keyframes: {
+        'slide-up': {
+          from: { transform: 'translateY(100%)' },
+          to:   { transform: 'translateY(0)' },
+        },
+      },
+      animation: {
+        'slide-up': 'slide-up 0.22s cubic-bezier(0.32,0.72,0,1)',
+      },
     },
   },
   plugins: [],
