@@ -107,10 +107,10 @@ export const Navbar: React.FC<NavbarProps> = ({
     return () => document.removeEventListener('mousedown', handler);
   }, [showUserMenu]);
 
-  const handleLogout = useCallback(() => {
+  const handleLogout = useCallback(async () => {
     setShowUserMenu(false);
     setShowDeleteConfirm(false);
-    logout();
+    await logout();
   }, [logout]);
 
   const handleDeleteAccount = useCallback(async () => {
@@ -120,7 +120,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       await authApi.deleteMe();
       setShowUserMenu(false);
       setShowDeleteConfirm(false);
-      logout();
+      await logout();
     } catch {
       setDeleteError('Xóa tài khoản thất bại. Thử lại sau.');
     } finally {

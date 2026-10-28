@@ -12,20 +12,19 @@ import {
   WritingSentence,
 } from '../types';
 
-const TOKEN_KEY = 'hsk_access_token';
-export const getStoredToken = () => localStorage.getItem(TOKEN_KEY);
-export const setStoredToken = (t: string) => localStorage.setItem(TOKEN_KEY, t);
-export const clearStoredToken = () => localStorage.removeItem(TOKEN_KEY);
+// Token is stored in httpOnly cookie — JS never touches it directly.
+// These stubs are kept so old imports don't break during transition.
+export const getStoredToken = () => null;
+export const setStoredToken = (_t: string) => {};
+export const clearStoredToken = () => {
+  // Remove legacy token if it exists from before the cookie migration
+  try { localStorage.removeItem('hsk_access_token'); } catch {}
+};
 
 const api = axios.create({
   baseURL: '/api/v1',
   timeout: 10000,
-});
-
-api.interceptors.request.use(config => {
-  const token = getStoredToken();
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
+  withCredentials: true, // send httpOnly cookie on every request
 });
 
 export const vocabApi = {
@@ -108,13 +107,17 @@ export const srsApi = {
 };
 
 export const authApi = {
-  googleLogin: async (credential: string): Promise<{ access_token: string; user: AuthUser }> => {
-    const res = await api.post('/auth/google', { token: credential });
+  googleLogin: async (credential: string): Promise<{ user: AuthUser }> => {
+    // Server sets httpOnly cookie; response only contains user info
+    const res = await api.post<{ user: AuthUser }>('/auth/google', { token: credential });
     return res.data;
   },
   getMe: async (): Promise<AuthUser> => {
     const res = await api.get<AuthUser>('/auth/me');
     return res.data;
+  },
+  logout: async (): Promise<void> => {
+    await api.post('/auth/logout');
   },
   deleteMe: async (): Promise<void> => {
     await api.delete('/auth/me');
