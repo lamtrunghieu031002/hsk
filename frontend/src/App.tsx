@@ -19,6 +19,7 @@ const MeaningDrill     = lazy(() => import('./components/MeaningDrill').then(m =
 const AdminPanel       = lazy(() => import('./components/AdminPanel').then(m => ({ default: m.AdminPanel })));
 const ProgressDashboard = lazy(() => import('./components/ProgressDashboard').then(m => ({ default: m.ProgressDashboard })));
 const SpeechPractice   = lazy(() => import('./components/SpeechPractice').then(m => ({ default: m.SpeechPractice })));
+const SentenceWriting  = lazy(() => import('./components/SentenceWriting').then(m => ({ default: m.SentenceWriting })));
 
 const TabFallback = () => (
   <div className="py-16 text-center text-sm text-slate-400 dark:text-slate-500">
@@ -113,6 +114,8 @@ export const App: React.FC = () => {
   const [activeWritingWord, setActiveWritingWord] = useState<Vocabulary | null>(null);
   const [loading, setLoading]                 = useState<boolean>(false);
   const [drillMode, setDrillMode]             = useState<boolean>(false);
+  const [partOfSpeechFilter, setPartOfSpeechFilter] = useState<string>('');
+  const [partsOfSpeech, setPartsOfSpeech]     = useState<string[]>([]);
 
   // Dark mode — init from localStorage, fallback to system preference
   const [isDark, setIsDark] = useState<boolean>(() => {
@@ -145,21 +148,25 @@ export const App: React.FC = () => {
       .catch(e => console.warn('stats:', e));
   }, []);
 
-  // Fetch vocab when level changes + reset visible count
+  // Load parts of speech when level changes
+  useEffect(() => {
+    setPartOfSpeechFilter('');
+    vocabApi.getPartsOfSpeech(selectedLevel).then(setPartsOfSpeech).catch(() => {});
+  }, [selectedLevel]);
+
+  // Fetch vocab when level or part_of_speech filter changes
   useEffect(() => {
     setVisibleCount(VOCAB_PAGE);
-    const cached = vocabCacheRef.current.get(selectedLevel);
-    if (cached) {
-      setVocabList(cached);
-      setTotalVocab(cached.length);
-      return;
+    if (!partOfSpeechFilter) {
+      const cached = vocabCacheRef.current.get(selectedLevel);
+      if (cached) { setVocabList(cached); setTotalVocab(cached.length); return; }
     }
     let cancelled = false;
     setLoading(true);
-    vocabApi.list(selectedLevel, undefined, 1, 500)
+    vocabApi.list(selectedLevel, undefined, 1, 500, partOfSpeechFilter || undefined)
       .then(res => {
         if (cancelled) return;
-        vocabCacheRef.current.set(selectedLevel, res.items);
+        if (!partOfSpeechFilter) vocabCacheRef.current.set(selectedLevel, res.items);
         setVocabList(res.items);
         setTotalVocab(res.total);
         setActiveWritingWord(prev => prev ?? res.items[0] ?? null);
@@ -167,7 +174,7 @@ export const App: React.FC = () => {
       .catch(console.error)
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [selectedLevel]);
+  }, [selectedLevel, partOfSpeechFilter]);
 
   // IntersectionObserver — load more vocab cards when sentinel enters viewport
   useEffect(() => {
@@ -249,6 +256,19 @@ export const App: React.FC = () => {
                       {loading ? 'Đang tải...' : `${Math.min(visibleCount, totalVocab)} / ${totalVocab} từ · Hỗ trợ phát âm chuẩn & phân tích Hán Việt`}
                     </p>
                   </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {partsOfSpeech.length > 0 && (
+                      <select
+                        value={partOfSpeechFilter}
+                        onChange={e => setPartOfSpeechFilter(e.target.value)}
+                        className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-red-400/30 focus:border-red-400 transition-colors"
+                      >
+                        <option value="">Tất cả từ loại</option>
+                        {partsOfSpeech.map(p => (
+                          <option key={p} value={p}>{p}</option>
+                        ))}
+                      </select>
+                    )}
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={() => setDrillMode(true)}
@@ -265,6 +285,7 @@ export const App: React.FC = () => {
                       <Sparkles className="w-4 h-4" />
                       <span>Flashcard ({vocabList.length} từ)</span>
                     </button>
+                  </div>
                   </div>
                 </div>
 
@@ -368,10 +389,15 @@ export const App: React.FC = () => {
               />
             )}
 
-            {/* Tab 8: Tiến Trình */}
+            {/* Tab 8: Tập Viết Câu */}
+            {currentTab === 'sentence-writing' && (
+              <SentenceWriting selectedLevel={selectedLevel} />
+            )}
+
+            {/* Tab 9: Tiến Trình */}
             {currentTab === 'progress' && <ProgressDashboard />}
 
-            {/* Tab 9: Admin Panel */}
+            {/* Tab 10: Admin Panel */}
             {currentTab === 'admin' && <AdminPanel />}
 
           </Suspense>

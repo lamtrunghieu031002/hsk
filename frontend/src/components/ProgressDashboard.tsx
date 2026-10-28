@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Flame, BookOpen, BarChart3, Sparkles, PenTool, Award, Headphones, RefreshCw, TrendingUp } from 'lucide-react';
-import { progressApi, ProgressData } from '../services/api';
+import { Flame, BookOpen, BarChart3, Sparkles, PenTool, Award, Headphones, RefreshCw, TrendingUp, Mic, NotebookPen, Trophy } from 'lucide-react';
+import { progressApi, ProgressData, LeaderboardEntry } from '../services/api';
 
 const TYPE_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-  flashcard:    { label: 'Flashcard SRS', icon: <Sparkles className="w-3.5 h-3.5" />,  color: 'text-amber-500' },
-  meaning_drill:{ label: 'Viết Theo Nghĩa', icon: <PenTool className="w-3.5 h-3.5" />, color: 'text-violet-500' },
-  exam:         { label: 'Đề Thi',         icon: <Award className="w-3.5 h-3.5" />,    color: 'text-blue-500' },
-  listening:    { label: 'Luyện Nghe',     icon: <Headphones className="w-3.5 h-3.5" />, color: 'text-emerald-500' },
+  flashcard:       { label: 'Flashcard SRS',    icon: <Sparkles className="w-3.5 h-3.5" />,    color: 'text-amber-500' },
+  meaning_drill:   { label: 'Viết Theo Nghĩa',  icon: <PenTool className="w-3.5 h-3.5" />,    color: 'text-violet-500' },
+  exam:            { label: 'Đề Thi',           icon: <Award className="w-3.5 h-3.5" />,       color: 'text-blue-500' },
+  listening:       { label: 'Luyện Nghe',       icon: <Headphones className="w-3.5 h-3.5" />,  color: 'text-emerald-500' },
+  speaking:        { label: 'Luyện Nói',        icon: <Mic className="w-3.5 h-3.5" />,         color: 'text-rose-500' },
+  sentence_writing:{ label: 'Tập Viết Câu',     icon: <NotebookPen className="w-3.5 h-3.5" />, color: 'text-teal-500' },
 };
 
 function timeAgo(iso: string): string {
@@ -37,6 +39,7 @@ function AccuracyBar({ value }: { value: number }) {
 
 export const ProgressDashboard: React.FC = () => {
   const [data, setData] = useState<ProgressData | null>(null);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,8 +47,9 @@ export const ProgressDashboard: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const d = await progressApi.get();
+      const [d, lb] = await Promise.all([progressApi.get(), progressApi.getLeaderboard()]);
       setData(d);
+      setLeaderboard(lb);
     } catch {
       setError('Không thể tải dữ liệu tiến trình');
     } finally {
@@ -196,6 +200,39 @@ export const ProgressDashboard: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Leaderboard */}
+      {leaderboard.length > 0 && (
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
+          <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2">
+            <Trophy className="w-4 h-4 text-amber-500" />
+            <span className="text-sm font-bold text-slate-700 dark:text-slate-200">Bảng Xếp Hạng Streak</span>
+          </div>
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            {leaderboard.map((entry, i) => (
+              <div key={i} className="flex items-center gap-3 px-4 py-2.5">
+                <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-extrabold flex-shrink-0 ${
+                  i === 0 ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400' :
+                  i === 1 ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300' :
+                  i === 2 ? 'bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-400' :
+                            'bg-slate-50 dark:bg-slate-800/40 text-slate-400'
+                }`}>{i + 1}</span>
+                {entry.avatar_url
+                  ? <img src={entry.avatar_url} alt="" className="w-7 h-7 rounded-full flex-shrink-0" />
+                  : <div className="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 flex-shrink-0" />
+                }
+                <span className="flex-1 text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{entry.name}</span>
+                <div className="flex items-center gap-3 text-xs flex-shrink-0">
+                  <span className="flex items-center gap-1 font-bold text-orange-600 dark:text-orange-400">
+                    <Flame className="w-3.5 h-3.5" />{entry.streak_days} ngày
+                  </span>
+                  <span className="text-slate-400 hidden sm:block">{entry.total_words.toLocaleString()} từ</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

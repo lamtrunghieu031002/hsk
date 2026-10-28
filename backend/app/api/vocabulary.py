@@ -11,17 +11,31 @@ from app.schemas.vocabulary import VocabularySchema, VocabularyListResponse
 router = APIRouter(prefix="/vocabulary", tags=["Vocabulary"])
 
 
+@router.get("/parts-of-speech")
+async def list_parts_of_speech(
+    hsk_level: Optional[int] = Query(None, ge=1, le=6),
+    db: AsyncSession = Depends(get_db)
+):
+    """Return distinct non-null part_of_speech values for the given level."""
+    q = select(Vocabulary.part_of_speech).where(Vocabulary.part_of_speech.isnot(None)).distinct()
+    if hsk_level:
+        q = q.where(Vocabulary.hsk_level == hsk_level)
+    res = await db.execute(q.order_by(Vocabulary.part_of_speech))
+    return [r[0] for r in res.all()]
+
+
 @router.get("/", response_model=VocabularyListResponse)
 async def list_vocabulary(
     hsk_level: Optional[int] = Query(None, ge=1, le=6, description="HSK Level 1-6"),
     search: Optional[str] = Query(None, description="Search Chinese, Pinyin, or Vietnamese meaning"),
+    part_of_speech: Optional[str] = Query(None, description="Filter by part of speech"),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=500),
     db: AsyncSession = Depends(get_db)
 ):
-    # Only cache full-level fetches (no search, page 1, large page_size)
+    # Only cache full-level fetches (no search/filter, page 1, large page_size)
     cache_key = None
-    if hsk_level and not search and page == 1 and page_size >= 200:
+    if hsk_level and not search and not part_of_speech and page == 1 and page_size >= 200:
         cache_key = f"vocab:level:{hsk_level}:full"
         cached = await cache_get(cache_key)
         if cached:
@@ -31,6 +45,9 @@ async def list_vocabulary(
 
     if hsk_level:
         query = query.where(Vocabulary.hsk_level == hsk_level)
+
+    if part_of_speech:
+        query = query.where(Vocabulary.part_of_speech == part_of_speech)
 
     if search:
         search_clean = search.strip().lower()

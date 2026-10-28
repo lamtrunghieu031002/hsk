@@ -9,6 +9,7 @@ import {
   AuthUser,
   AdminUsersResponse,
   VideoItem,
+  WritingSentence,
 } from '../types';
 
 const TOKEN_KEY = 'hsk_access_token';
@@ -28,10 +29,11 @@ api.interceptors.request.use(config => {
 });
 
 export const vocabApi = {
-  list: async (hskLevel?: number, search?: string, page: number = 1, pageSize: number = 20) => {
+  list: async (hskLevel?: number, search?: string, page: number = 1, pageSize: number = 20, partOfSpeech?: string) => {
     const params: Record<string, any> = { page, page_size: pageSize };
     if (hskLevel) params.hsk_level = hskLevel;
     if (search) params.search = search;
+    if (partOfSpeech) params.part_of_speech = partOfSpeech;
     const res = await api.get<VocabularyListResponse>('/vocabulary/', { params });
     return res.data;
   },
@@ -44,7 +46,14 @@ export const vocabApi = {
   getDetail: async (id: string) => {
     const res = await api.get<Vocabulary>(`/vocabulary/${id}`);
     return res.data;
-  }
+  },
+
+  getPartsOfSpeech: async (hskLevel?: number): Promise<string[]> => {
+    const params: Record<string, any> = {};
+    if (hskLevel) params.hsk_level = hskLevel;
+    const res = await api.get<string[]>('/vocabulary/parts-of-speech', { params });
+    return res.data;
+  },
 };
 
 export const grammarApi = {
@@ -144,12 +153,24 @@ export interface ProgressData {
   recent: RecentSession[];
 }
 
+export interface LeaderboardEntry {
+  name: string;
+  avatar_url: string | null;
+  streak_days: number;
+  total_words: number;
+  total_sessions: number;
+}
+
 export const progressApi = {
   logSession: async (payload: SessionPayload): Promise<void> => {
     await api.post('/progress/session', payload);
   },
   get: async (): Promise<ProgressData> => {
     const res = await api.get<ProgressData>('/progress');
+    return res.data;
+  },
+  getLeaderboard: async (): Promise<LeaderboardEntry[]> => {
+    const res = await api.get<LeaderboardEntry[]>('/progress/leaderboard');
     return res.data;
   },
 };
@@ -200,6 +221,79 @@ export const examAdminApi = {
   },
   delete: async (id: string): Promise<void> => {
     await api.delete(`/admin/exams/${id}`);
+  },
+};
+
+export const sentenceApi = {
+  list: async (hskLevel?: number): Promise<WritingSentence[]> => {
+    const params: Record<string, any> = {};
+    if (hskLevel) params.hsk_level = hskLevel;
+    const res = await api.get<WritingSentence[]>('/sentences/', { params });
+    return res.data;
+  },
+};
+
+export const adminVocabApi = {
+  create: async (data: {
+    hsk_level: number; simplified: string; pinyin: string; pinyin_clean?: string;
+    meaning_vi: string; part_of_speech?: string; han_viet?: string; meaning_en?: string;
+  }): Promise<Vocabulary> => {
+    const res = await api.post<Vocabulary>('/admin/vocab/', data);
+    return res.data;
+  },
+  update: async (id: string, data: Partial<{
+    hsk_level: number; simplified: string; pinyin: string;
+    meaning_vi: string; part_of_speech: string; han_viet: string; meaning_en: string;
+  }>): Promise<Vocabulary> => {
+    const res = await api.patch<Vocabulary>(`/admin/vocab/${id}`, data);
+    return res.data;
+  },
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/admin/vocab/${id}`);
+  },
+};
+
+export const adminGrammarApi = {
+  create: async (data: {
+    hsk_level: number; title: string; structure: string; explanation_vi: string;
+    examples: { chinese: string; pinyin: string; meaning_vi: string }[];
+  }): Promise<GrammarPoint> => {
+    const res = await api.post<GrammarPoint>('/admin/grammar/', data);
+    return res.data;
+  },
+  update: async (id: string, data: Partial<{
+    hsk_level: number; title: string; structure: string; explanation_vi: string;
+    examples: { chinese: string; pinyin: string; meaning_vi: string }[];
+  }>): Promise<GrammarPoint> => {
+    const res = await api.patch<GrammarPoint>(`/admin/grammar/${id}`, data);
+    return res.data;
+  },
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/admin/grammar/${id}`);
+  },
+};
+
+export const adminSentenceApi = {
+  list: async (hskLevel?: number): Promise<WritingSentence[]> => {
+    const params: Record<string, any> = {};
+    if (hskLevel) params.hsk_level = hskLevel;
+    const res = await api.get<WritingSentence[]>('/admin/sentences/', { params });
+    return res.data;
+  },
+  create: async (data: {
+    hsk_level: number; chinese: string; pinyin: string; meaning_vi: string; sort_order?: number;
+  }): Promise<WritingSentence> => {
+    const res = await api.post<WritingSentence>('/admin/sentences/', data);
+    return res.data;
+  },
+  update: async (id: string, data: Partial<{
+    hsk_level: number; chinese: string; pinyin: string; meaning_vi: string; sort_order: number;
+  }>): Promise<WritingSentence> => {
+    const res = await api.patch<WritingSentence>(`/admin/sentences/${id}`, data);
+    return res.data;
+  },
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/admin/sentences/${id}`);
   },
 };
 

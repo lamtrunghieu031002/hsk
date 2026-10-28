@@ -123,3 +123,12 @@ export interface VideoItem {
   is_active: boolean;
   sort_order: number;
 }
+
+export interface WritingSentence {
+  id: string;
+  hsk_level: number;
+  chinese: string;
+  pinyin: string;
+  meaning_vi: string;
+  sort_order: number;
+}

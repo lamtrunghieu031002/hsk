@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { BookOpen, Sparkles, PenTool, Award, Search, BookMarked, Sun, Moon, Headphones, Shield, LogOut, User as UserIcon, ChevronDown, Trash2, AlertTriangle, TrendingUp, Mic, MoreHorizontal, X } from 'lucide-react';
+import { BookOpen, Sparkles, PenTool, Award, Search, BookMarked, Sun, Moon, Headphones, Shield, LogOut, User as UserIcon, ChevronDown, Trash2, AlertTriangle, TrendingUp, Mic, MoreHorizontal, X, NotebookPen } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { authApi } from '../services/api';
 
@@ -35,8 +35,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   const allTabs = [
     { id: 'vocab',      label: 'Từ Vựng HSK',      icon: BookOpen },
     { id: 'flashcards', label: 'Flashcard SRS',     icon: Sparkles },
-    { id: 'writing',    label: 'Tập Viết Chữ',      icon: PenTool },
-    { id: 'exams',      label: 'Đề Thi Mô Phỏng',   icon: Award },
+    { id: 'writing',          label: 'Tập Viết Chữ',      icon: PenTool },
+    { id: 'sentence-writing', label: 'Tập Viết Câu',      icon: NotebookPen },
+    { id: 'exams',            label: 'Đề Thi Mô Phỏng',   icon: Award },
     { id: 'grammar',    label: 'Ngữ Pháp',           icon: BookMarked },
     { id: 'listening',  label: 'Luyện Nghe',         icon: Headphones },
     { id: 'speaking',   label: 'Luyện Nói',          icon: Mic },

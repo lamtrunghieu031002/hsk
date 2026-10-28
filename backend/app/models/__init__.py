@@ -6,6 +6,7 @@ from app.models.srs import SRSCard
 from app.models.user import User
 from app.models.study_session import StudySession
 from app.models.youtube_video import YoutubeVideo
+from app.models.sentence import WritingSentence
 
 __all__ = [
     "Base",
@@ -18,4 +19,5 @@ __all__ = [
     "User",
     "StudySession",
     "YoutubeVideo",
+    "WritingSentence",
 ]

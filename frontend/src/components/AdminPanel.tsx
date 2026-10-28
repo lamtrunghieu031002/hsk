@@ -1,11 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Shield, Trash2, RefreshCw, ChevronLeft, ChevronRight, User as UserIcon,
   Youtube, Plus, X, Edit2, Eye, EyeOff, AlertCircle,
   Award, ArrowLeft, ChevronDown, ChevronUp, Headphones, BookOpen,
+  Search, BookMarked, NotebookPen,
 } from 'lucide-react';
-import { adminApi, videoApi, examAdminApi, ExamQuestionCreate, ExamCreatePayload } from '../services/api';
-import { AdminUserRow, VideoItem, ExamSummary } from '../types';
+import {
+  adminApi, videoApi, examAdminApi, vocabApi,
+  grammarApi, adminVocabApi, adminGrammarApi, adminSentenceApi,
+  ExamQuestionCreate, ExamCreatePayload,
+} from '../services/api';
+import { AdminUserRow, VideoItem, ExamSummary, Vocabulary, GrammarPoint, WritingSentence } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -1112,15 +1117,651 @@ const UsersTab: React.FC = () => {
   );
 };
 
+// ── VocabTab ───────────────────────────────────────────────────────────────
+
+const VocabTab: React.FC = () => {
+  const [items, setItems] = useState<Vocabulary[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  const [levelFilter, setLevelFilter] = useState(0);
+  const [page, setPage] = useState(1);
+  const [showAdd, setShowAdd] = useState(false);
+  const [editItem, setEditItem] = useState<Vocabulary | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const PAGE_SIZE = 20;
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchVocab = useCallback(async (lvl: number, q: string, p: number) => {
+    setLoading(true); setError(null);
+    try {
+      const res = await vocabApi.list(lvl || undefined, q || undefined, p, PAGE_SIZE);
+      setItems(res.items); setTotal(res.total);
+    } catch { setError('Không thể tải từ vựng'); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => fetchVocab(levelFilter, search, page), 400);
+  }, [search, levelFilter, page, fetchVocab]);
+
+  const inputCls = 'w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-400';
+
+  const VocabForm: React.FC<{ initial?: Vocabulary; onSave: (d: any) => Promise<void>; onCancel: () => void }> = ({ initial, onSave, onCancel }) => {
+    const [f, setF] = useState({
+      simplified: initial?.simplified ?? '',
+      pinyin: initial?.pinyin ?? '',
+      meaning_vi: initial?.meaning_vi ?? '',
+      hsk_level: initial?.hsk_level ?? 1,
+      part_of_speech: initial?.part_of_speech ?? '',
+      han_viet: initial?.han_viet ?? '',
+      meaning_en: initial?.meaning_en ?? '',
+    });
+    const set = (k: string, v: any) => setF(p => ({ ...p, [k]: v }));
+    return (
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <div><label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Chữ Hán <span className="text-red-500">*</span></label>
+            <input value={f.simplified} onChange={e => set('simplified', e.target.value)} disabled={!!initial} className={`${inputCls} mt-1 chinese-font text-xl`} placeholder="你好" />
+          </div>
+          <div><label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Cấp HSK</label>
+            <select value={f.hsk_level} onChange={e => set('hsk_level', Number(e.target.value))} className={`${inputCls} mt-1`}>
+              {[1,2,3,4,5,6].map(l => <option key={l} value={l}>HSK {l}</option>)}
+            </select>
+          </div>
+          <div><label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Pinyin <span className="text-red-500">*</span></label>
+            <input value={f.pinyin} onChange={e => set('pinyin', e.target.value)} className={`${inputCls} mt-1`} placeholder="nǐ hǎo" />
+          </div>
+          <div><label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Từ loại</label>
+            <input value={f.part_of_speech} onChange={e => set('part_of_speech', e.target.value)} className={`${inputCls} mt-1`} placeholder="động từ" />
+          </div>
+          <div className="col-span-2"><label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Nghĩa tiếng Việt <span className="text-red-500">*</span></label>
+            <input value={f.meaning_vi} onChange={e => set('meaning_vi', e.target.value)} className={`${inputCls} mt-1`} placeholder="Xin chào" />
+          </div>
+          <div><label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Âm Hán Việt</label>
+            <input value={f.han_viet} onChange={e => set('han_viet', e.target.value)} className={`${inputCls} mt-1`} placeholder="Nhĩ hảo" />
+          </div>
+          <div><label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Nghĩa tiếng Anh</label>
+            <input value={f.meaning_en} onChange={e => set('meaning_en', e.target.value)} className={`${inputCls} mt-1`} placeholder="Hello" />
+          </div>
+        </div>
+        {formError && <p className="text-xs text-red-600">{formError}</p>}
+        <div className="flex gap-2">
+          <button onClick={onCancel} className="flex-1 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">Hủy</button>
+          <button onClick={() => onSave(f)} disabled={saving} className="flex-1 py-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 text-white text-sm font-bold shadow-md hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:hover:scale-100">
+            {saving ? 'Đang lưu...' : initial ? 'Cập nhật' : 'Thêm Từ'}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const handleAdd = async (f: any) => {
+    setFormError('');
+    if (!f.simplified.trim() || !f.pinyin.trim() || !f.meaning_vi.trim()) { setFormError('Vui lòng điền đủ chữ Hán, Pinyin, nghĩa'); return; }
+    setSaving(true);
+    try {
+      await adminVocabApi.create({ ...f, simplified: f.simplified.trim(), pinyin: f.pinyin.trim(), meaning_vi: f.meaning_vi.trim(), part_of_speech: f.part_of_speech || undefined, han_viet: f.han_viet || undefined, meaning_en: f.meaning_en || undefined });
+      setShowAdd(false); fetchVocab(levelFilter, search, page);
+    } catch (e: any) { setFormError(e?.response?.data?.detail || 'Không thể thêm từ'); }
+    finally { setSaving(false); }
+  };
+
+  const handleEdit = async (f: any) => {
+    if (!editItem) return; setFormError('');
+    setSaving(true);
+    try {
+      await adminVocabApi.update(editItem.id, { ...f, part_of_speech: f.part_of_speech || undefined, han_viet: f.han_viet || undefined, meaning_en: f.meaning_en || undefined });
+      setEditItem(null); fetchVocab(levelFilter, search, page);
+    } catch (e: any) { setFormError(e?.response?.data?.detail || 'Không thể cập nhật'); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = async (id: string) => {
+    setConfirmDelete(null);
+    try { await adminVocabApi.delete(id); fetchVocab(levelFilter, search, page); }
+    catch { setError('Không thể xóa từ'); }
+  };
+
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h2 className="text-xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-red-500" />Quản Lý Từ Vựng
+          </h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Tổng {total} từ — cũng ảnh hưởng Flashcard, Luyện Nói, Tập Viết Chữ</p>
+        </div>
+        <button onClick={() => { setShowAdd(true); setEditItem(null); setFormError(''); }}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-red-600 to-rose-600 shadow-md hover:scale-105 active:scale-95 transition-all">
+          <Plus className="w-3.5 h-3.5" />Thêm từ
+        </button>
+      </div>
+
+      {error && <div className="text-sm text-red-600 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-2xl px-4 py-3">{error}</div>}
+
+      {/* Filters */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[180px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+          <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
+            placeholder="Tìm chữ Hán, Pinyin, nghĩa..."
+            className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-400" />
+        </div>
+        <div className="flex gap-1">
+          {[0,1,2,3,4,5,6].map(l => (
+            <button key={l} onClick={() => { setLevelFilter(l); setPage(1); }}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all ${levelFilter === l ? 'bg-red-600 text-white border-red-600' : 'border-slate-200 dark:border-slate-700 text-slate-500 hover:border-red-300'}`}>
+              {l === 0 ? 'Tất cả' : `HSK${l}`}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Add form */}
+      {showAdd && (
+        <div className="rounded-2xl border border-red-200 dark:border-red-900/50 bg-red-50/30 dark:bg-red-950/10 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5"><Plus className="w-4 h-4 text-red-500" />Thêm Từ Mới</h3>
+            <button onClick={() => setShowAdd(false)} className="p-1 rounded-lg text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"><X className="w-4 h-4" /></button>
+          </div>
+          <VocabForm onSave={handleAdd} onCancel={() => setShowAdd(false)} />
+        </div>
+      )}
+      {editItem && (
+        <div className="rounded-2xl border border-blue-200 dark:border-blue-900/50 bg-blue-50/30 dark:bg-blue-950/10 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5"><Edit2 className="w-4 h-4 text-blue-500" />Chỉnh Sửa Từ</h3>
+            <button onClick={() => setEditItem(null)} className="p-1 rounded-lg text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"><X className="w-4 h-4" /></button>
+          </div>
+          <VocabForm initial={editItem} onSave={handleEdit} onCancel={() => setEditItem(null)} />
+        </div>
+      )}
+
+      {/* Table */}
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40">
+              <th className="text-left px-4 py-3 font-semibold text-xs text-slate-500 uppercase tracking-wider">Từ</th>
+              <th className="text-left px-4 py-3 font-semibold text-xs text-slate-500 uppercase tracking-wider hidden sm:table-cell">Nghĩa</th>
+              <th className="text-center px-3 py-3 font-semibold text-xs text-slate-500 uppercase tracking-wider hidden md:table-cell">Cấp</th>
+              <th className="px-3 py-3 w-20" />
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            {loading && items.length === 0 ? (
+              <tr><td colSpan={4} className="text-center py-10 text-slate-400 text-sm">Đang tải...</td></tr>
+            ) : items.length === 0 ? (
+              <tr><td colSpan={4} className="text-center py-10 text-slate-400 text-sm">Không tìm thấy từ nào</td></tr>
+            ) : items.map(v => (
+              <tr key={v.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                <td className="px-4 py-3">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-extrabold text-slate-900 dark:text-white chinese-font">{v.simplified}</span>
+                    <span className="text-xs text-red-500 font-medium">{v.pinyin}</span>
+                  </div>
+                  {v.han_viet && <div className="text-[11px] text-amber-600 dark:text-amber-400">{v.han_viet}</div>}
+                </td>
+                <td className="px-4 py-3 hidden sm:table-cell">
+                  <div className="text-xs font-medium text-slate-700 dark:text-slate-300">{v.meaning_vi}</div>
+                  {v.part_of_speech && <div className="text-[10px] text-slate-400 mt-0.5">{v.part_of_speech}</div>}
+                </td>
+                <td className="px-3 py-3 text-center hidden md:table-cell">
+                  <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${LEVEL_COLORS[v.hsk_level] || ''}`}>HSK {v.hsk_level}</span>
+                </td>
+                <td className="px-3 py-3 text-right">
+                  {confirmDelete === v.id ? (
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => handleDelete(v.id)} className="text-xs font-bold text-red-600 hover:underline">Xóa</button>
+                      <span className="text-slate-300 dark:text-slate-700">|</span>
+                      <button onClick={() => setConfirmDelete(null)} className="text-xs text-slate-500 hover:underline">Hủy</button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => { setEditItem(v); setFormError(''); setShowAdd(false); }} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"><Edit2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => setConfirmDelete(v.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-slate-500 text-xs">Trang {page} / {totalPages} ({total} từ)</span>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 transition-colors"><ChevronLeft className="w-4 h-4" /></button>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 transition-colors"><ChevronRight className="w-4 h-4" /></button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── GrammarTab ─────────────────────────────────────────────────────────────
+
+const GrammarTab: React.FC = () => {
+  const [items, setItems] = useState<GrammarPoint[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [levelFilter, setLevelFilter] = useState(0);
+  const [view, setView] = useState<'list' | 'add' | 'edit'>('list');
+  const [editItem, setEditItem] = useState<GrammarPoint | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchGrammar = useCallback(async () => {
+    setLoading(true); setError(null);
+    try { setItems(await grammarApi.list(levelFilter || undefined)); }
+    catch { setError('Không thể tải ngữ pháp'); }
+    finally { setLoading(false); }
+  }, [levelFilter]);
+
+  useEffect(() => { fetchGrammar(); }, [fetchGrammar]);
+
+  const inputCls = 'w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-400';
+
+  interface GrammarFormProps { initial?: GrammarPoint; onSave: (d: any) => Promise<void>; onCancel: () => void; }
+  const GrammarForm: React.FC<GrammarFormProps> = ({ initial, onSave, onCancel }) => {
+    const [f, setF] = useState({
+      title: initial?.title ?? '',
+      hsk_level: initial?.hsk_level ?? 1,
+      structure: initial?.structure ?? '',
+      explanation_vi: initial?.explanation_vi ?? '',
+      examples: initial?.examples?.length ? initial.examples : [{ chinese: '', pinyin: '', meaning_vi: '' }],
+    });
+    const setEx = (i: number, k: string, v: string) =>
+      setF(p => ({ ...p, examples: p.examples.map((ex, j) => j === i ? { ...ex, [k]: v } : ex) }));
+    const addEx = () => setF(p => ({ ...p, examples: [...p.examples, { chinese: '', pinyin: '', meaning_vi: '' }] }));
+    const rmEx = (i: number) => setF(p => ({ ...p, examples: p.examples.filter((_, j) => j !== i) }));
+
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2">
+            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Tiêu đề <span className="text-red-500">*</span></label>
+            <input value={f.title} onChange={e => setF(p => ({ ...p, title: e.target.value }))} className={`${inputCls} mt-1`} placeholder="不 + Verb (phủ định)" />
+          </div>
+          <div>
+            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Cấp HSK</label>
+            <select value={f.hsk_level} onChange={e => setF(p => ({ ...p, hsk_level: Number(e.target.value) }))} className={`${inputCls} mt-1`}>
+              {[1,2,3,4,5,6].map(l => <option key={l} value={l}>HSK {l}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Cấu trúc <span className="text-red-500">*</span></label>
+            <input value={f.structure} onChange={e => setF(p => ({ ...p, structure: e.target.value }))} className={`${inputCls} mt-1`} placeholder="S + 不 + V" />
+          </div>
+          <div className="col-span-2">
+            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Giải thích (tiếng Việt) <span className="text-red-500">*</span></label>
+            <textarea rows={3} value={f.explanation_vi} onChange={e => setF(p => ({ ...p, explanation_vi: e.target.value }))} className={`${inputCls} mt-1 resize-none`} placeholder="Dùng 不 để phủ định động từ hoặc tính từ..." />
+          </div>
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Ví dụ ({f.examples.length})</label>
+            <button onClick={addEx} className="text-xs font-bold text-red-600 hover:underline flex items-center gap-0.5"><Plus className="w-3 h-3" />Thêm ví dụ</button>
+          </div>
+          <div className="space-y-2">
+            {f.examples.map((ex, i) => (
+              <div key={i} className="flex gap-2 items-start">
+                <div className="flex-1 grid grid-cols-3 gap-1.5">
+                  <input value={ex.chinese} onChange={e => setEx(i, 'chinese', e.target.value)} className={`${inputCls} chinese-font`} placeholder="我不喝咖啡。" />
+                  <input value={ex.pinyin} onChange={e => setEx(i, 'pinyin', e.target.value)} className={inputCls} placeholder="Wǒ bù hē kāfēi." />
+                  <input value={ex.meaning_vi} onChange={e => setEx(i, 'meaning_vi', e.target.value)} className={inputCls} placeholder="Tôi không uống cà phê." />
+                </div>
+                {f.examples.length > 1 && (
+                  <button onClick={() => rmEx(i)} className="mt-2 p-1 text-slate-400 hover:text-red-500 transition-colors"><X className="w-3.5 h-3.5" /></button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {formError && <p className="text-xs text-red-600">{formError}</p>}
+        <div className="flex gap-2">
+          <button onClick={onCancel} className="flex-1 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">Hủy</button>
+          <button onClick={() => onSave(f)} disabled={saving} className="flex-1 py-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 text-white text-sm font-bold shadow-md hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:hover:scale-100">
+            {saving ? 'Đang lưu...' : initial ? 'Cập nhật' : 'Thêm Điểm Ngữ Pháp'}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const handleAdd = async (f: any) => {
+    setFormError('');
+    if (!f.title.trim() || !f.structure.trim() || !f.explanation_vi.trim()) { setFormError('Vui lòng điền đủ tiêu đề, cấu trúc, giải thích'); return; }
+    setSaving(true);
+    try { await adminGrammarApi.create(f); setView('list'); fetchGrammar(); }
+    catch (e: any) { setFormError(e?.response?.data?.detail || 'Không thể thêm'); }
+    finally { setSaving(false); }
+  };
+
+  const handleEdit = async (f: any) => {
+    if (!editItem) return; setFormError('');
+    setSaving(true);
+    try { await adminGrammarApi.update(editItem.id, f); setView('list'); setEditItem(null); fetchGrammar(); }
+    catch (e: any) { setFormError(e?.response?.data?.detail || 'Không thể cập nhật'); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = async (id: string) => {
+    setConfirmDelete(null);
+    try { await adminGrammarApi.delete(id); fetchGrammar(); }
+    catch { setError('Không thể xóa'); }
+  };
+
+  if (view === 'add') return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <button onClick={() => setView('list')} className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"><ArrowLeft className="w-4 h-4" /></button>
+        <h2 className="text-lg font-extrabold text-slate-900 dark:text-white">Thêm Điểm Ngữ Pháp</h2>
+      </div>
+      <GrammarForm onSave={handleAdd} onCancel={() => setView('list')} />
+    </div>
+  );
+
+  if (view === 'edit' && editItem) return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <button onClick={() => { setView('list'); setEditItem(null); }} className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"><ArrowLeft className="w-4 h-4" /></button>
+        <h2 className="text-lg font-extrabold text-slate-900 dark:text-white">Chỉnh Sửa Ngữ Pháp</h2>
+      </div>
+      <GrammarForm initial={editItem} onSave={handleEdit} onCancel={() => { setView('list'); setEditItem(null); }} />
+    </div>
+  );
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h2 className="text-xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2"><BookMarked className="w-5 h-5 text-red-500" />Quản Lý Ngữ Pháp</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{items.length} điểm ngữ pháp</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={fetchGrammar} disabled={loading} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors disabled:opacity-50">
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />Làm mới
+          </button>
+          <button onClick={() => setView('add')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-red-600 to-rose-600 shadow-md hover:scale-105 active:scale-95 transition-all">
+            <Plus className="w-3.5 h-3.5" />Thêm mới
+          </button>
+        </div>
+      </div>
+
+      {error && <div className="text-sm text-red-600 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-2xl px-4 py-3">{error}</div>}
+
+      <div className="flex gap-1 flex-wrap">
+        {[0,1,2,3,4,5,6].map(l => (
+          <button key={l} onClick={() => setLevelFilter(l)}
+            className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all ${levelFilter === l ? 'bg-red-600 text-white border-red-600' : 'border-slate-200 dark:border-slate-700 text-slate-500 hover:border-red-300'}`}>
+            {l === 0 ? 'Tất cả' : `HSK ${l}`}
+          </button>
+        ))}
+      </div>
+
+      {loading && items.length === 0 ? (
+        <div className="text-center py-10 text-slate-400 text-sm">Đang tải...</div>
+      ) : items.length === 0 ? (
+        <div className="text-center py-10 text-slate-400 text-sm">Chưa có điểm ngữ pháp nào</div>
+      ) : (
+        <div className="space-y-2">
+          {items.map(g => (
+            <div key={g.id} className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold ${LEVEL_COLORS[g.hsk_level] || ''}`}>HSK {g.hsk_level}</span>
+                    <span className="font-bold text-sm text-slate-900 dark:text-white">{g.title}</span>
+                  </div>
+                  <code className="text-xs text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/30 px-2 py-0.5 rounded-lg">{g.structure}</code>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 line-clamp-2">{g.explanation_vi}</p>
+                  {g.examples.length > 0 && (
+                    <div className="mt-2 text-xs text-slate-600 dark:text-slate-400 chinese-font">{g.examples[0].chinese} — {g.examples[0].meaning_vi}</div>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  {confirmDelete === g.id ? (
+                    <>
+                      <button onClick={() => handleDelete(g.id)} className="text-xs font-bold text-red-600 hover:underline">Xóa</button>
+                      <span className="text-slate-300 dark:text-slate-700">|</span>
+                      <button onClick={() => setConfirmDelete(null)} className="text-xs text-slate-500 hover:underline">Hủy</button>
+                    </>
+                  ) : (
+                    <>
+                      <button onClick={() => { setEditItem(g); setView('edit'); setFormError(''); }} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"><Edit2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => setConfirmDelete(g.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── SentencesTab ───────────────────────────────────────────────────────────
+
+const SentencesTab: React.FC = () => {
+  const [items, setItems] = useState<WritingSentence[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [levelFilter, setLevelFilter] = useState(0);
+  const [showAdd, setShowAdd] = useState(false);
+  const [editItem, setEditItem] = useState<WritingSentence | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchSentences = useCallback(async () => {
+    setLoading(true); setError(null);
+    try { setItems(await adminSentenceApi.list(levelFilter || undefined)); }
+    catch { setError('Không thể tải câu'); }
+    finally { setLoading(false); }
+  }, [levelFilter]);
+
+  useEffect(() => { fetchSentences(); }, [fetchSentences]);
+
+  const inputCls = 'w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-400';
+
+  interface SentenceFormProps { initial?: WritingSentence; onSave: (d: any) => Promise<void>; onCancel: () => void; }
+  const SentenceForm: React.FC<SentenceFormProps> = ({ initial, onSave, onCancel }) => {
+    const [f, setF] = useState({
+      chinese: initial?.chinese ?? '',
+      pinyin: initial?.pinyin ?? '',
+      meaning_vi: initial?.meaning_vi ?? '',
+      hsk_level: initial?.hsk_level ?? 1,
+      sort_order: initial?.sort_order ?? 0,
+    });
+    const set = (k: string, v: any) => setF(p => ({ ...p, [k]: v }));
+    return (
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2">
+            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Câu tiếng Trung <span className="text-red-500">*</span></label>
+            <input value={f.chinese} onChange={e => set('chinese', e.target.value)} className={`${inputCls} mt-1 chinese-font text-base`} placeholder="我每天早上六点起床。" />
+          </div>
+          <div className="col-span-2">
+            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Pinyin <span className="text-red-500">*</span></label>
+            <input value={f.pinyin} onChange={e => set('pinyin', e.target.value)} className={`${inputCls} mt-1`} placeholder="Wǒ měitiān zǎoshang liùdiǎn qǐchuáng." />
+          </div>
+          <div className="col-span-2">
+            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Nghĩa tiếng Việt <span className="text-red-500">*</span></label>
+            <input value={f.meaning_vi} onChange={e => set('meaning_vi', e.target.value)} className={`${inputCls} mt-1`} placeholder="Tôi dậy lúc 6 giờ sáng mỗi ngày." />
+          </div>
+          <div>
+            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Cấp HSK</label>
+            <select value={f.hsk_level} onChange={e => set('hsk_level', Number(e.target.value))} className={`${inputCls} mt-1`}>
+              {[1,2,3,4,5,6].map(l => <option key={l} value={l}>HSK {l}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Thứ tự</label>
+            <input type="number" min={0} value={f.sort_order} onChange={e => set('sort_order', Number(e.target.value))} className={`${inputCls} mt-1`} />
+          </div>
+        </div>
+        {formError && <p className="text-xs text-red-600">{formError}</p>}
+        <div className="flex gap-2">
+          <button onClick={onCancel} className="flex-1 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">Hủy</button>
+          <button onClick={() => onSave(f)} disabled={saving} className="flex-1 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-sm font-bold shadow-md hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:hover:scale-100">
+            {saving ? 'Đang lưu...' : initial ? 'Cập nhật' : 'Thêm Câu'}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const handleAdd = async (f: any) => {
+    setFormError('');
+    if (!f.chinese.trim() || !f.pinyin.trim() || !f.meaning_vi.trim()) { setFormError('Vui lòng điền đủ 3 trường bắt buộc'); return; }
+    setSaving(true);
+    try { await adminSentenceApi.create(f); setShowAdd(false); fetchSentences(); }
+    catch (e: any) { setFormError(e?.response?.data?.detail || 'Không thể thêm câu'); }
+    finally { setSaving(false); }
+  };
+
+  const handleEdit = async (f: any) => {
+    if (!editItem) return; setFormError('');
+    setSaving(true);
+    try { await adminSentenceApi.update(editItem.id, f); setEditItem(null); fetchSentences(); }
+    catch (e: any) { setFormError(e?.response?.data?.detail || 'Không thể cập nhật'); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = async (id: string) => {
+    setConfirmDelete(null);
+    try { await adminSentenceApi.delete(id); fetchSentences(); }
+    catch { setError('Không thể xóa câu'); }
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h2 className="text-xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2"><NotebookPen className="w-5 h-5 text-emerald-500" />Quản Lý Tập Viết Câu</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{items.length} câu luyện tập</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={fetchSentences} disabled={loading} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors disabled:opacity-50">
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />Làm mới
+          </button>
+          <button onClick={() => { setShowAdd(true); setEditItem(null); setFormError(''); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 shadow-md hover:scale-105 active:scale-95 transition-all">
+            <Plus className="w-3.5 h-3.5" />Thêm câu
+          </button>
+        </div>
+      </div>
+
+      {error && <div className="text-sm text-red-600 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-2xl px-4 py-3">{error}</div>}
+
+      <div className="flex gap-1 flex-wrap">
+        {[0,1,2,3,4,5,6].map(l => (
+          <button key={l} onClick={() => setLevelFilter(l)}
+            className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all ${levelFilter === l ? 'bg-emerald-600 text-white border-emerald-600' : 'border-slate-200 dark:border-slate-700 text-slate-500 hover:border-emerald-300'}`}>
+            {l === 0 ? 'Tất cả' : `HSK ${l}`}
+          </button>
+        ))}
+      </div>
+
+      {showAdd && (
+        <div className="rounded-2xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/30 dark:bg-emerald-950/10 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5"><Plus className="w-4 h-4 text-emerald-500" />Thêm Câu Mới</h3>
+            <button onClick={() => setShowAdd(false)} className="p-1 rounded-lg text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"><X className="w-4 h-4" /></button>
+          </div>
+          <SentenceForm onSave={handleAdd} onCancel={() => setShowAdd(false)} />
+        </div>
+      )}
+      {editItem && (
+        <div className="rounded-2xl border border-blue-200 dark:border-blue-900/50 bg-blue-50/30 dark:bg-blue-950/10 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5"><Edit2 className="w-4 h-4 text-blue-500" />Chỉnh Sửa Câu</h3>
+            <button onClick={() => setEditItem(null)} className="p-1 rounded-lg text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"><X className="w-4 h-4" /></button>
+          </div>
+          <SentenceForm initial={editItem} onSave={handleEdit} onCancel={() => setEditItem(null)} />
+        </div>
+      )}
+
+      {loading && items.length === 0 ? (
+        <div className="text-center py-10 text-slate-400 text-sm">Đang tải...</div>
+      ) : items.length === 0 ? (
+        <div className="text-center py-12 text-slate-400 text-sm bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">Chưa có câu nào cho cấp này</div>
+      ) : (
+        <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40">
+                <th className="text-left px-4 py-3 font-semibold text-xs text-slate-500 uppercase tracking-wider">Câu tiếng Trung</th>
+                <th className="text-left px-4 py-3 font-semibold text-xs text-slate-500 uppercase tracking-wider hidden sm:table-cell">Nghĩa</th>
+                <th className="text-center px-3 py-3 font-semibold text-xs text-slate-500 uppercase tracking-wider hidden md:table-cell">Cấp</th>
+                <th className="px-3 py-3 w-20" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {items.map(s => (
+                <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                  <td className="px-4 py-3">
+                    <div className="font-semibold text-slate-900 dark:text-white chinese-font text-sm">{s.chinese}</div>
+                    <div className="text-[11px] text-red-500 mt-0.5">{s.pinyin}</div>
+                  </td>
+                  <td className="px-4 py-3 hidden sm:table-cell">
+                    <div className="text-xs text-slate-600 dark:text-slate-400">{s.meaning_vi}</div>
+                  </td>
+                  <td className="px-3 py-3 text-center hidden md:table-cell">
+                    <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${LEVEL_COLORS[s.hsk_level] || ''}`}>HSK {s.hsk_level}</span>
+                  </td>
+                  <td className="px-3 py-3 text-right">
+                    {confirmDelete === s.id ? (
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => handleDelete(s.id)} className="text-xs font-bold text-red-600 hover:underline">Xóa</button>
+                        <span className="text-slate-300 dark:text-slate-700">|</span>
+                        <button onClick={() => setConfirmDelete(null)} className="text-xs text-slate-500 hover:underline">Hủy</button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => { setEditItem(s); setFormError(''); setShowAdd(false); }} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"><Edit2 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => setConfirmDelete(s.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ── Main AdminPanel ────────────────────────────────────────────────────────
 
 export const AdminPanel: React.FC = () => {
-  const [tab, setTab] = useState<'users' | 'videos' | 'exams'>('users');
+  const [tab, setTab] = useState<'users' | 'videos' | 'exams' | 'vocab' | 'grammar' | 'sentences'>('users');
 
   const TABS = [
-    { id: 'users',  label: 'Người Dùng', icon: Shield  },
-    { id: 'videos', label: 'Video',       icon: Youtube },
-    { id: 'exams',  label: 'Đề Thi',      icon: Award   },
+    { id: 'users',     label: 'Người Dùng',     icon: Shield       },
+    { id: 'vocab',     label: 'Từ Vựng',         icon: BookOpen     },
+    { id: 'grammar',   label: 'Ngữ Pháp',         icon: BookMarked   },
+    { id: 'sentences', label: 'Tập Viết Câu',     icon: NotebookPen  },
+    { id: 'videos',    label: 'Video',             icon: Youtube      },
+    { id: 'exams',     label: 'Đề Thi',            icon: Award        },
   ] as const;
 
   return (
@@ -1143,9 +1784,12 @@ export const AdminPanel: React.FC = () => {
         ))}
       </div>
 
-      {tab === 'users'  && <UsersTab />}
-      {tab === 'videos' && <VideosTab />}
-      {tab === 'exams'  && <ExamsTab />}
+      {tab === 'users'     && <UsersTab />}
+      {tab === 'vocab'     && <VocabTab />}
+      {tab === 'grammar'   && <GrammarTab />}
+      {tab === 'sentences' && <SentencesTab />}
+      {tab === 'videos'    && <VideosTab />}
+      {tab === 'exams'     && <ExamsTab />}
     </div>
   );
 };

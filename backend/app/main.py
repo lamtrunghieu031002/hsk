@@ -1,13 +1,18 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import select, func
 from app.core.config import settings
 from app.core.database import engine, Base, AsyncSessionLocal
 import app.models  # ensure models are registered
 from app.api import vocabulary, grammar, exam, srs, transcript, auth, admin, progress
 from app.api import youtube
+from app.api import sentence
+import time
+import asyncio
+from collections import defaultdict
 
 # 16 curated videos seeded once when the table is empty
 _INITIAL_VIDEOS = [
@@ -50,12 +55,30 @@ async def lifespan(app: FastAPI):
     yield
     await engine.dispose()
 
+# Simple in-memory rate limiter for auth endpoint (5 requests / 60 seconds per IP)
+_auth_hits: dict[str, list[float]] = defaultdict(list)
+_AUTH_LIMIT = 5
+_AUTH_WINDOW = 60.0
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version="1.0.0",
     description="Nền tảng Học tiếng Trung HSK 1 - HSK 6 (Chuẩn 2026) tối ưu hóa hiệu năng cực đại với Python FastAPI, PostgreSQL và asyncpg.",
     lifespan=lifespan
 )
+
+
+@app.middleware("http")
+async def auth_rate_limit(request: Request, call_next):
+    if request.url.path == f"{settings.API_V1_STR}/auth/google" and request.method == "POST":
+        ip = request.client.host if request.client else "unknown"
+        now = time.time()
+        hits = _auth_hits[ip]
+        _auth_hits[ip] = [t for t in hits if now - t < _AUTH_WINDOW]
+        if len(_auth_hits[ip]) >= _AUTH_LIMIT:
+            return JSONResponse(status_code=429, content={"detail": "Quá nhiều yêu cầu đăng nhập. Thử lại sau 1 phút."})
+        _auth_hits[ip].append(now)
+    return await call_next(request)
 
 # Gzip compression for payload optimization
 app.add_middleware(GZipMiddleware, minimum_size=1000)
@@ -80,6 +103,7 @@ app.include_router(auth.router, prefix=settings.API_V1_STR)
 app.include_router(admin.router, prefix=settings.API_V1_STR)
 app.include_router(progress.router, prefix=settings.API_V1_STR)
 app.include_router(youtube.router, prefix=settings.API_V1_STR)
+app.include_router(sentence.router, prefix=settings.API_V1_STR)
 
 
 @app.get("/")

@@ -57,13 +57,17 @@ export function computeDiff(typed: string, answer: string): ScoreResult {
 }
 
 // Parse a pasted transcript into segments.
-// Supports plain text, newline-per-sentence, and [mm:ss] timestamp prefix.
+// Supports: plain text, newline-per-sentence, [mm:ss] or mm:ss timestamps.
+// Long clauses separated by ，are further split when > MAX_CLAUSE chars.
+const MAX_CLAUSE = 20; // split at ， if segment exceeds this many CJK chars
+
 export function parseTranscript(raw: string): Segment[] {
-  const TIME_RE = /^\[?(\d{1,2}):(\d{2})\]?\s*/;
+  const TIME_RE = /^\[?(\d{1,2}):(\d{2})(?:,\d+)?\]?\s*/;
+  const SRT_INDEX_RE = /^\d+$/;
   const segments: Segment[] = [];
   let id = 0;
 
-  const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(l => l && !SRT_INDEX_RE.test(l));
 
   for (const line of lines) {
     let startTime: number | undefined;
@@ -75,18 +79,30 @@ export function parseTranscript(raw: string): Segment[] {
       text = line.replace(TIME_RE, '').trim();
     }
 
-    // Split line by sentence-ending punctuation
+    // Skip lines with no Chinese
+    if (!/[一-鿿]/.test(text)) continue;
+
+    // Split by hard sentence-ending punctuation first
     const sentences = text
-      .split(/(?<=[。！？…])/)
+      .split(/(?<=[。！？…⋯])/)
       .map(s => s.trim())
       .filter(s => /[一-鿿]/.test(s));
 
-    for (let si = 0; si < sentences.length; si++) {
-      segments.push({
-        id: id++,
-        text: sentences[si],
-        startTime: si === 0 ? startTime : undefined,
-      });
+    let firstInLine = true;
+    for (const sent of sentences) {
+      // Optionally split long sentences at ，
+      const clauses = cjkCount(sent) > MAX_CLAUSE
+        ? sent.split(/(?<=，)/).map(c => c.trim()).filter(c => /[一-鿿]/.test(c))
+        : [sent];
+
+      for (const clause of clauses) {
+        segments.push({
+          id: id++,
+          text: clause,
+          startTime: firstInLine ? startTime : undefined,
+        });
+        firstInLine = false;
+      }
     }
   }
 
@@ -105,7 +121,9 @@ export function estimateDuration(text: string, rate = 0.85): number {
   return Math.max(2, (chars / 3.5) / rate + 0.8);
 }
 
-// Play TTS with a callback when finished; returns a cancel fn
+// Play TTS with a callback when finished; returns a cancel fn.
+// Nulls out onend before cancel so Chrome doesn't fire the callback
+// after a manual stop (Chrome bug: cancel() can still trigger onend).
 export function speakSegment(
   text: string,
   rate: number,
@@ -120,6 +138,11 @@ export function speakSegment(
   const v = voices.find(v => v.lang === 'zh-CN') || voices.find(v => v.lang.startsWith('zh'));
   if (v) u.voice = v;
   if (onEnd) u.onend = onEnd;
-  window.speechSynthesis.speak(u);
-  return () => window.speechSynthesis.cancel();
+  // Small delay so the previous cancel() has time to flush (Chrome quirk)
+  setTimeout(() => window.speechSynthesis.speak(u), 80);
+  return () => {
+    u.onend = null;   // prevent stale onEnd firing after cancel
+    u.onerror = null;
+    window.speechSynthesis.cancel();
+  };
 }

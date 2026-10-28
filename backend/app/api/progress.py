@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Literal
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from pydantic import BaseModel
 from app.core.database import get_db
 from app.models.user import User
@@ -13,7 +13,7 @@ router = APIRouter(prefix="/progress", tags=["Progress"])
 
 
 class SessionBody(BaseModel):
-    session_type: Literal["flashcard", "meaning_drill", "exam", "listening", "speaking"]
+    session_type: Literal["flashcard", "meaning_drill", "exam", "listening", "speaking", "sentence_writing"]
     hsk_level: int
     items_count: int
     correct_count: int
@@ -96,3 +96,46 @@ async def get_progress(
         "by_level": by_level,
         "recent": recent,
     }
+
+
+@router.get("/leaderboard")
+async def get_leaderboard(db: AsyncSession = Depends(get_db)):
+    """Public leaderboard — top 20 users by streak days."""
+    res = await db.execute(select(User).where(User.role.in_(["admin", "user"])))
+    users = res.scalars().all()
+
+    today = datetime.now(timezone.utc).date()
+    board = []
+    for u in users:
+        sess_res = await db.execute(
+            select(StudySession.created_at)
+            .where(StudySession.user_id == u.id)
+            .order_by(StudySession.created_at.desc())
+        )
+        dates = sorted({r.created_at.date() for r in sess_res}, reverse=True)
+        streak = 0
+        for i, d in enumerate(dates):
+            if d == today - timedelta(days=i):
+                streak += 1
+            else:
+                break
+        total_res = await db.execute(
+            select(func.sum(StudySession.items_count))
+            .where(StudySession.user_id == u.id)
+        )
+        total_words = total_res.scalar() or 0
+        sessions_res = await db.execute(
+            select(func.count(StudySession.id)).where(StudySession.user_id == u.id)
+        )
+        total_sessions = sessions_res.scalar() or 0
+        if streak > 0 or total_sessions > 0:
+            board.append({
+                "name": u.name,
+                "avatar_url": u.avatar_url,
+                "streak_days": streak,
+                "total_words": int(total_words),
+                "total_sessions": int(total_sessions),
+            })
+
+    board.sort(key=lambda x: (-x["streak_days"], -x["total_words"]))
+    return board[:20]
