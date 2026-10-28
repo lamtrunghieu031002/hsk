@@ -129,8 +129,13 @@ async def get_leaderboard(db: AsyncSession = Depends(get_db)):
         )
         total_sessions = sessions_res.scalar() or 0
         if streak > 0 or total_sessions > 0:
+            # Only expose display_name (first name + last initial) and avatar — no email or full name
+            parts = (u.name or "").split()
+            display = parts[0] if parts else "Ẩn danh"
+            if len(parts) > 1:
+                display += f" {parts[-1][0]}."
             board.append({
-                "name": u.name,
+                "display_name": display,
                 "avatar_url": u.avatar_url,
                 "streak_days": streak,
                 "total_words": int(total_words),

@@ -154,7 +154,7 @@ export interface ProgressData {
 }
 
 export interface LeaderboardEntry {
-  name: string;
+  display_name: string;
   avatar_url: string | null;
   streak_days: number;
   total_words: number;

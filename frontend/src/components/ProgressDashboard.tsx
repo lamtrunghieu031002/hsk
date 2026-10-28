@@ -221,7 +221,7 @@ export const ProgressDashboard: React.FC = () => {
                   ? <img src={entry.avatar_url} alt="" className="w-7 h-7 rounded-full flex-shrink-0" />
                   : <div className="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 flex-shrink-0" />
                 }
-                <span className="flex-1 text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{entry.name}</span>
+                <span className="flex-1 text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{entry.display_name}</span>
                 <div className="flex items-center gap-3 text-xs flex-shrink-0">
                   <span className="flex items-center gap-1 font-bold text-orange-600 dark:text-orange-400">
                     <Flame className="w-3.5 h-3.5" />{entry.streak_days} ngày

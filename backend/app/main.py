@@ -11,8 +11,10 @@ from app.api import vocabulary, grammar, exam, srs, transcript, auth, admin, pro
 from app.api import youtube
 from app.api import sentence
 import time
-import asyncio
+import logging
 from collections import defaultdict
+
+logger = logging.getLogger(__name__)
 
 # 16 curated videos seeded once when the table is empty
 _INITIAL_VIDEOS = [
@@ -83,14 +85,25 @@ async def auth_rate_limit(request: Request, call_next):
 # Gzip compression for payload optimization
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-# CORS configuration
+# CORS — explicit origins from config (never wildcard + credentials)
+_allowed_origins = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
 
 # API Routers
 app.include_router(vocabulary.router, prefix=settings.API_V1_STR)

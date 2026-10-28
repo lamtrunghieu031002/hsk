@@ -1,16 +1,24 @@
-from fastapi import APIRouter, HTTPException
+import re
+import logging
+from fastapi import APIRouter, HTTPException, Path
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import NoTranscriptFound, TranscriptsDisabled, VideoUnavailable
 
 router = APIRouter(prefix="/transcript", tags=["transcript"])
+logger = logging.getLogger(__name__)
 
 CHINESE_LANGS = ["zh-Hans", "zh", "zh-CN", "zh-TW", "zh-Hant"]
+_VIDEO_ID_RE = re.compile(r'^[a-zA-Z0-9_-]{11}$')
 
 _api = YouTubeTranscriptApi()
 
 
 @router.get("/{video_id}")
-async def get_transcript(video_id: str):
+async def get_transcript(
+    video_id: str = Path(..., min_length=11, max_length=11),
+):
+    if not _VIDEO_ID_RE.match(video_id):
+        raise HTTPException(status_code=400, detail="Video ID không hợp lệ")
     try:
         fetched = _api.fetch(video_id, languages=CHINESE_LANGS)
     except TranscriptsDisabled:
@@ -23,7 +31,8 @@ async def get_transcript(video_id: str):
             detail="Không tìm thấy phụ đề tiếng Trung. Video có thể chỉ có phụ đề tiếng khác."
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi khi tải transcript: {e}")
+        logger.error("Transcript fetch failed for %s: %s", video_id, e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Không thể tải transcript. Vui lòng thử lại sau.")
 
     segments = []
     for snippet in fetched:
