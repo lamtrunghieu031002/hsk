@@ -45,6 +45,13 @@ export const YoutubeListening: React.FC<Props> = ({ selectedLevel }) => {
     [videos, activeVideoId]
   );
 
+  // Auto-select first video in filtered list when no video is active
+  useEffect(() => {
+    if (!activeVideoId && filtered.length > 0) {
+      setActiveVideoId(filtered[0].video_id);
+    }
+  }, [filtered, activeVideoId]);
+
   return (
     <div className="max-w-7xl mx-auto my-6 space-y-6">
       {/* Header */}

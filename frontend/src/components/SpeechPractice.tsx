@@ -35,7 +35,8 @@ function calcScore(tokens: { correct: boolean }[]) {
   return Math.round(tokens.filter(t => t.correct).length / tokens.length * 100);
 }
 
-const BATCH = 20;
+const WORD_COUNT_OPTIONS = [10, 20, 30] as const;
+type WordCount = typeof WORD_COUNT_OPTIONS[number];
 
 type Mode  = 'read' | 'speak';
 type Phase = 'idle' | 'listening' | 'result' | 'done';
@@ -60,10 +61,11 @@ export const SpeechPractice: React.FC<Props> = ({ cards, onClose }) => {
   const { user } = useAuth();
   const [started, setStarted]     = useState(false);
   const [mode, setMode]           = useState<Mode>('read');
+  const [wordCount, setWordCount] = useState<WordCount>(20);
   const [showPinyin, setShowPinyin] = useState(true);
   const [showChinese, setShowChinese] = useState(false); // for 'speak' mode
 
-  const [queue]        = useState<Vocabulary[]>(() => shuffle(cards).slice(0, BATCH));
+  const [queue, setQueue] = useState<Vocabulary[]>([]);
   const [idx, setIdx]  = useState(0);
   const [phase, setPhase]       = useState<Phase>('idle');
   const [transcript, setTranscript] = useState('');
@@ -170,7 +172,7 @@ export const SpeechPractice: React.FC<Props> = ({ cards, onClose }) => {
   };
 
   const handleRestart = () => {
-    // full session restart
+    setQueue(shuffle(cards).slice(0, wordCount));
     setIdx(0);
     setPhase('idle');
     setTranscript('');
@@ -224,7 +226,7 @@ export const SpeechPractice: React.FC<Props> = ({ cards, onClose }) => {
           </div>
           <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white">Luyện Nói Tiếng Trung</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            {Math.min(cards.length, BATCH)} từ ngẫu nhiên · Web Speech API · Miễn phí
+            Từ ngẫu nhiên · Web Speech API · Miễn phí
           </p>
         </div>
 
@@ -260,6 +262,27 @@ export const SpeechPractice: React.FC<Props> = ({ cards, onClose }) => {
           </button>
         </div>
 
+        {/* Word count selector */}
+        <div>
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Số từ mỗi phiên</p>
+          <div className="flex gap-2">
+            {WORD_COUNT_OPTIONS.map(n => (
+              <button
+                key={n}
+                onClick={() => setWordCount(n)}
+                disabled={cards.length < n}
+                className={`flex-1 py-2.5 rounded-2xl text-sm font-bold border-2 transition-all disabled:opacity-40 ${
+                  wordCount === n
+                    ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400'
+                    : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-emerald-300'
+                }`}
+              >
+                {n} từ
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="flex items-center space-x-3 text-xs text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800/60 rounded-2xl px-4 py-3">
           <AlertCircle className="w-4 h-4 flex-shrink-0 text-amber-400" />
           <span>Cần <strong>Chrome / Edge</strong> và cho phép truy cập microphone</span>
@@ -270,7 +293,7 @@ export const SpeechPractice: React.FC<Props> = ({ cards, onClose }) => {
             Hủy
           </button>
           <button
-            onClick={() => setStarted(true)}
+            onClick={() => { setQueue(shuffle(cards).slice(0, wordCount)); setStarted(true); }}
             className={`flex-2 flex-grow py-3 rounded-2xl text-white font-bold text-sm shadow-lg transition-all hover:scale-105 active:scale-95 ${
               mode === 'read'
                 ? 'bg-gradient-to-r from-emerald-500 to-teal-500 shadow-emerald-500/20'

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense, memo } from 'react';
-import { Volume2, Sparkles, PenTool, NotebookPen } from 'lucide-react';
+import { Volume2, Sparkles, PenTool, NotebookPen, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Navbar } from './components/Navbar';
 import { LevelSelector } from './components/LevelSelector';
 import { VocabSearchModal } from './components/VocabSearchModal';
@@ -333,7 +333,9 @@ export const App: React.FC = () => {
             )}
 
             {/* Tab 3: Tập Viết Chữ Hán */}
-            {currentTab === 'writing' && (
+            {currentTab === 'writing' && (() => {
+              const writingIdx = vocabList.findIndex(w => w.id === activeWritingWord?.id);
+              return (
               <div className="my-6">
                 <div className="text-center mb-6">
                   <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
@@ -343,6 +345,30 @@ export const App: React.FC = () => {
                     Mô phỏng vector SVG và kiểm tra đúng thứ tự nét bút (Stroke Order)
                   </p>
                 </div>
+
+                {/* Prev / Next navigation */}
+                {vocabList.length > 0 && (
+                  <div className="flex items-center justify-center gap-4 mb-4">
+                    <button
+                      onClick={() => writingIdx > 0 && setActiveWritingWord(vocabList[writingIdx - 1])}
+                      disabled={writingIdx <= 0}
+                      className="flex items-center gap-1 px-4 py-2 rounded-xl text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 transition-all"
+                    >
+                      <ChevronLeft className="w-4 h-4" /> Trước
+                    </button>
+                    <span className="text-xs font-medium text-slate-400 dark:text-slate-500 tabular-nums">
+                      {writingIdx + 1} / {vocabList.length}
+                    </span>
+                    <button
+                      onClick={() => writingIdx < vocabList.length - 1 && setActiveWritingWord(vocabList[writingIdx + 1])}
+                      disabled={writingIdx >= vocabList.length - 1}
+                      className="flex items-center gap-1 px-4 py-2 rounded-xl text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 transition-all"
+                    >
+                      Sau <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+
                 <HanziCanvas
                   char={activeWritingWord?.simplified || '学'}
                   pinyin={activeWritingWord?.pinyin || 'xué'}
@@ -370,7 +396,8 @@ export const App: React.FC = () => {
                   </div>
                 </div>
               </div>
-            )}
+              );
+            })()}
 
             {/* Tab 4: Đề Thi Mô Phỏng */}
             {currentTab === 'exams' && <ExamView selectedLevel={selectedLevel} />}
